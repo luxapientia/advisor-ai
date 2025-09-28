@@ -1,73 +1,98 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database with pgvector
+  # PostgreSQL Database
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg15
+    container_name: advisor-ai-postgres
     environment:
       POSTGRES_DB: advisor_ai
       POSTGRES_USER: advisor_user
       POSTGRES_PASSWORD: advisor_password
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5433:5432"  # Changed from 5432 to 5433 to avoid conflict
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U advisor_user -d advisor_ai"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - advisor-network
 
-  # FastAPI Backend
+  # Redis (for caching and sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: advisor-ai-redis
+    ports:
+      - "6380:6379"  # Changed from 6379 to 6380 to avoid conflict
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - advisor-network
+
+  # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: advisor-ai-backend
+    environment:
+      - DATABASE_URL=postgresql://advisor_user:advisor_password@postgres:5432/advisor_ai
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+      - DEBUG=true
+    env_file:
+      - ./backend/.env
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://advisor_user:advisor_password@postgres:5432/advisor_ai
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      HUBSPOT_CLIENT_ID: ${HUBSPOT_CLIENT_ID}
-      HUBSPOT_CLIENT_SECRET: ${HUBSPOT_CLIENT_SECRET}
-      SECRET_KEY: ${SECRET_KEY}
-      ENVIRONMENT: development
-    volumes:
-      - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/venv  # Exclude venv from volume mount
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - advisor-network
 
-  # React Frontend
+  # Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: advisor-ai-frontend
     ports:
       - "3000:3000"
-    environment:
-      REACT_APP_API_URL: http://localhost:8000
-      REACT_APP_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      REACT_APP_HUBSPOT_CLIENT_ID: ${HUBSPOT_CLIENT_ID}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     depends_on:
       - backend
-    command: npm start
-
-  # Redis for caching and background tasks
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
     volumes:
-      - redis_data:/data
+      - ./frontend:/app
+      - /app/node_modules  # Exclude node_modules from volume mount
+    command: ["nginx", "-g", "daemon off;"]
+    networks:
+      - advisor-network
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  advisor-network:
+    driver: bridge
