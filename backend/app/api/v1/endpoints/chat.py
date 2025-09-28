@@ -6,6 +6,7 @@ and context management for the AI assistant.
 """
 
 import json
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 import structlog
