@@ -48,6 +48,12 @@ const Integrations: React.FC = () => {
   };
 
   const handleDisconnect = async (service: string) => {
+    // Only allow disconnecting HubSpot - Google disconnection is handled by logout
+    if (service === 'google') {
+      toast.error('Please use the logout button to disconnect Google account');
+      return;
+    }
+    
     if (window.confirm(`Are you sure you want to disconnect ${service}?`)) {
       try {
         await apiClient.delete(`/integrations/accounts/${service}`);
@@ -164,36 +170,7 @@ const Integrations: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex space-x-2">
-                {user?.has_google_access ? (
-                  <>
-                    <button
-                      onClick={() => handleSync('google')}
-                      disabled={syncing === 'google'}
-                      className="btn-secondary"
-                    >
-                      {syncing === 'google' ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleDisconnect('google')}
-                      className="btn-danger"
-                    >
-                      Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => handleConnect('google')}
-                    className="btn-primary"
-                  >
-                    Connect
-                  </button>
-                )}
-              </div>
+              
             </div>
           </div>
         </div>
