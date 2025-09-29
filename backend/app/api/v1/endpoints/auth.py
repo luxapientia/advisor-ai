@@ -5,6 +5,7 @@ This module handles Google OAuth, HubSpot OAuth, and JWT token
 generation and validation for user authentication.
 """
 
+import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
@@ -23,6 +24,7 @@ from app.models.user import User, UserSession
 from app.services.auth_service import AuthService
 from app.services.google_service import GoogleService
 from app.services.hubspot_service import HubSpotService
+from app.services.rag_service import RAGService
 from app.schemas.auth import (
     GoogleAuthRequest,
     GoogleAuthResponse,
@@ -178,6 +180,31 @@ async def google_callback(
             refresh_token=refresh_token
         )
         
+        # Trigger Gmail sync in background
+        try:
+            rag_service = RAGService(db)
+            
+            # Create Google credentials from user tokens
+            from google.oauth2.credentials import Credentials
+            credentials = Credentials(
+                token=user.google_access_token,
+                refresh_token=user.google_refresh_token,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=None,
+                client_secret=None,
+                expiry=user.google_token_expires_at
+            )
+            
+            # Run sync in background (don't await to avoid blocking login)
+            asyncio.create_task(google_service.sync_gmail_emails(
+                credentials=credentials,
+                user_id=str(user.id),
+                rag_service=rag_service
+            ))
+            logger.info("Gmail sync triggered for user", user_id=str(user.id))
+        except Exception as e:
+            logger.warning("Failed to trigger Gmail sync", user_id=str(user.id), error=str(e))
+        
         log_auth_event(
             event_type="login",
             user_id=str(user.id),
@@ -293,6 +320,33 @@ async def hubspot_callback(
             access_token=access_token,
             refresh_token=refresh_token
         )
+        
+        # Trigger Gmail sync in background (if user has Google access)
+        try:
+            if user.has_google_access:
+                google_service = GoogleService()
+                rag_service = RAGService(db)
+                
+                # Create Google credentials from user tokens
+                from google.oauth2.credentials import Credentials
+                credentials = Credentials(
+                    token=user.google_access_token,
+                    refresh_token=user.google_refresh_token,
+                    token_uri="https://oauth2.googleapis.com/token",
+                    client_id=None,
+                    client_secret=None,
+                    expiry=user.google_token_expires_at
+                )
+                
+                # Run sync in background (don't await to avoid blocking login)
+                asyncio.create_task(google_service.sync_gmail_emails(
+                    credentials=credentials,
+                    user_id=str(user.id),
+                    rag_service=rag_service
+                ))
+                logger.info("Gmail sync triggered for user", user_id=str(user.id))
+        except Exception as e:
+            logger.warning("Failed to trigger Gmail sync", user_id=str(user.id), error=str(e))
         
         log_auth_event(
             event_type="login",
@@ -503,6 +557,31 @@ async def google_callback_redirect(
             refresh_token=refresh_token
         )
         
+        # Trigger Gmail sync in background
+        try:
+            rag_service = RAGService(db)
+            
+            # Create Google credentials from user tokens
+            from google.oauth2.credentials import Credentials
+            credentials = Credentials(
+                token=user.google_access_token,
+                refresh_token=user.google_refresh_token,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=None,
+                client_secret=None,
+                expiry=user.google_token_expires_at
+            )
+            
+            # Run sync in background (don't await to avoid blocking login)
+            asyncio.create_task(google_service.sync_gmail_emails(
+                credentials=credentials,
+                user_id=str(user.id),
+                rag_service=rag_service
+            ))
+            logger.info("Gmail sync triggered for user", user_id=str(user.id))
+        except Exception as e:
+            logger.warning("Failed to trigger Gmail sync", user_id=str(user.id), error=str(e))
+        
         # Redirect to frontend with tokens
         frontend_url = "http://localhost:3000/login"
         params = {
@@ -576,6 +655,33 @@ async def hubspot_callback_redirect(
             access_token=access_token,
             refresh_token=refresh_token
         )
+        
+        # Trigger Gmail sync in background (if user has Google access)
+        try:
+            if user.has_google_access:
+                google_service = GoogleService()
+                rag_service = RAGService(db)
+                
+                # Create Google credentials from user tokens
+                from google.oauth2.credentials import Credentials
+                credentials = Credentials(
+                    token=user.google_access_token,
+                    refresh_token=user.google_refresh_token,
+                    token_uri="https://oauth2.googleapis.com/token",
+                    client_id=None,
+                    client_secret=None,
+                    expiry=user.google_token_expires_at
+                )
+                
+                # Run sync in background (don't await to avoid blocking login)
+                asyncio.create_task(google_service.sync_gmail_emails(
+                    credentials=credentials,
+                    user_id=str(user.id),
+                    rag_service=rag_service
+                ))
+                logger.info("Gmail sync triggered for user", user_id=str(user.id))
+        except Exception as e:
+            logger.warning("Failed to trigger Gmail sync", user_id=str(user.id), error=str(e))
         
         # Redirect to frontend with tokens
         frontend_url = "http://localhost:3000/login"

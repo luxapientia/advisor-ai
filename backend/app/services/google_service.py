@@ -426,3 +426,199 @@ class GoogleService:
         except Exception as e:
             logger.error("Failed to create Calendar event", error=str(e))
             raise ExternalServiceError("calendar", "Failed to create Calendar event")
+    
+    async def sync_gmail_emails(
+        self,
+        credentials: Credentials,
+        user_id: str,
+        rag_service,
+        days_back: int = 90,
+        max_results: int = 500
+    ) -> Dict[str, Any]:
+        """
+        Sync Gmail emails into the RAG system.
+        
+        Args:
+            credentials: Google OAuth credentials
+            user_id: User ID for RAG storage
+            rag_service: RAG service instance for document ingestion
+            days_back: Number of days back to sync emails
+            max_results: Maximum number of emails to sync
+            
+        Returns:
+            Dict: Sync results and statistics
+        """
+        try:
+            logger.info("Starting Gmail email sync", user_id=user_id, days_back=days_back)
+            
+            # Get emails from specified time period
+            query = f"newer_than:{days_back}d"
+            messages = await self.get_gmail_messages(
+                credentials=credentials,
+                query=query,
+                max_results=max_results
+            )
+            
+            logger.info("Retrieved Gmail messages for sync", 
+                user_id=user_id, 
+                count=len(messages))
+
+            # Process and ingest emails
+            emails_synced = 0
+            documents_created = 0
+
+            for message in messages:
+                try:
+                    # Parse email data
+                    email_data = self._parse_gmail_message(message)
+                    
+                    # Ingest into RAG system
+                    document = await rag_service.ingest_document(
+                        user_id=user_id,
+                        source="gmail",
+                        source_id=email_data["id"],
+                        document_type="email",
+                        title=email_data["subject"],
+                        content=email_data["content"],
+                        metadata=email_data["metadata"]
+                    )
+                    
+                    documents_created += 1
+                    emails_synced += 1
+                    
+                    # Log progress every 50 emails
+                    if emails_synced % 50 == 0:
+                        logger.info("Gmail sync progress", 
+                            user_id=user_id, 
+                            processed=emails_synced,
+                            total=len(messages))
+                
+                except Exception as e:
+                    logger.warning("Failed to process email during sync", 
+                        user_id=user_id, 
+                        message_id=message.get("id"),
+                        error=str(e))
+                    continue
+            
+            result = {
+                "success": True,
+                "emails_synced": emails_synced,
+                "documents_created": documents_created,
+                "total_retrieved": len(messages)
+            }
+            
+            logger.info("Gmail email sync completed", 
+                user_id=user_id, 
+                emails_synced=emails_synced,
+                documents_created=documents_created)
+            
+            return result
+            
+        except Exception as e:
+            logger.error("Gmail email sync failed", user_id=user_id, error=str(e))
+            return {
+                "success": False,
+                "reason": "sync_failed",
+                "error": str(e),
+                "emails_synced": 0
+            }
+    
+    def _parse_gmail_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Parse Gmail message into structured data.
+        
+        Args:
+            message: Gmail message data
+            
+        Returns:
+            Dict: Parsed email data
+        """
+        payload = message.get("payload", {})
+        headers = payload.get("headers", [])
+        
+        # Extract headers
+        subject = ""
+        sender = ""
+        date = ""
+        to = ""
+        
+        for header in headers:
+            name = header.get("name", "").lower()
+            value = header.get("value", "")
+            
+            if name == "subject":
+                subject = value
+            elif name == "from":
+                sender = value
+            elif name == "date":
+                date = value
+            elif name == "to":
+                to = value
+        
+        # Extract body content
+        content = self._extract_email_body(payload)
+        
+        # Create metadata
+        metadata = {
+            "sender": sender,
+            "recipient": to,
+            "date": date,
+            "message_id": message.get("id"),
+            "thread_id": message.get("threadId"),
+            "labels": message.get("labelIds", []),
+            "snippet": message.get("snippet", "")
+        }
+        
+        return {
+            "id": message.get("id"),
+            "subject": subject or "No Subject",
+            "content": content,
+            "metadata": metadata
+        }
+    
+    def _extract_email_body(self, payload: Dict[str, Any]) -> str:
+        """
+        Extract email body content from Gmail payload.
+        
+        Args:
+            payload: Gmail message payload
+            
+        Returns:
+            str: Email body content
+        """
+        import base64
+        
+        body = ""
+        
+        # Check for multipart message
+        if "parts" in payload:
+            for part in payload["parts"]:
+                mime_type = part.get("mimeType", "")
+                
+                if mime_type == "text/plain":
+                    data = part.get("body", {}).get("data", "")
+                    if data:
+                        try:
+                            body = base64.urlsafe_b64decode(data).decode("utf-8")
+                            break
+                        except Exception:
+                            continue
+                elif mime_type == "text/html" and not body:
+                    data = part.get("body", {}).get("data", "")
+                    if data:
+                        try:
+                            body = base64.urlsafe_b64decode(data).decode("utf-8")
+                        except Exception:
+                            continue
+        else:
+            # Single part message
+            mime_type = payload.get("mimeType", "")
+            if mime_type in ["text/plain", "text/html"]:
+                data = payload.get("body", {}).get("data", "")
+                if data:
+                    try:
+                        body = base64.urlsafe_b64decode(data).decode("utf-8")
+                    except Exception:
+                        pass
+        
+        return body or "No content available"

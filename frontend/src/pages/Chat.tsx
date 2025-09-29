@@ -35,7 +35,6 @@ const Chat: React.FC = () => {
   } = useChat();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const hasCreatedSession = useRef(false);
   const loadedSessionId = useRef<string | null>(null);
 
   // Scroll to bottom when new messages arrive
