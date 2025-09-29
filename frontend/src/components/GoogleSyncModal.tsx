@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Mail, Calendar } from 'lucide-react';
 import { googleSyncService, GoogleSyncStatus } from '../services/googleSync';
 import toast from 'react-hot-toast';
+import { AxiosError } from 'axios';
 
 interface GoogleSyncModalProps {
   isOpen: boolean;
@@ -28,8 +29,14 @@ const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
           await googleSyncService.startSync();
         }
       } catch (error) {
-        console.error('Failed to initialize Gmail sync:', error);
-        toast.error('Failed to start Gmail sync');
+        console.error('Failed to initialize Google sync:', error);
+        
+        // If we get a 403 error, user is not authenticated - don't show error toast
+        if (error instanceof AxiosError && error.response?.status === 403) {
+          return; // Just return silently
+        }
+        
+        toast.error('Failed to start Google sync');
       }
     };
 
@@ -45,7 +52,7 @@ const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
         // If sync is completed or failed, notify parent
         if (status.completed || status.status === 'error') {
           if (status.completed) {
-            toast.success('Google sync completed! Your emails are now searchable.');
+            toast.success('Google sync completed! Your emails and calendar events are now searchable.');
           } else {
             toast.error('Google sync failed. Please try again.');
           }
@@ -54,6 +61,12 @@ const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
         }
       } catch (error) {
         console.error('Failed to get sync status:', error);
+        
+        // If we get a 403 error, user is not authenticated - stop polling
+        if (error instanceof AxiosError && error.response?.status === 403) {
+          clearInterval(pollInterval);
+          onSyncComplete?.();
+        }
       }
     }, 2000); // Poll every 2 seconds
 
@@ -84,24 +97,24 @@ const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
       case 'pending':
         return 'Preparing to sync Google...';
       case 'syncing':
-        return 'Syncing your Google emails...';
+        return 'Syncing your Google data...';
       case 'completed':
         return 'Google sync completed!';
       case 'error':
         return 'Google sync failed';
       default:
-        return 'Syncing your Google emails...';
+        return 'Syncing your Google data...';
     }
   };
 
   const getStatusDescription = () => {
     switch (syncStatus?.status) {
       case 'completed':
-        return 'Your emails are now searchable.';
+        return 'Your emails and calendar events are now searchable.';
       case 'error':
         return 'Please refresh the page to try again.';
       default:
-        return 'We are indexing your emails for AI search.';
+        return 'We are indexing your emails and calendar events for AI search.';
     }
   };
 
@@ -128,9 +141,23 @@ const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
             <h4 className="text-lg font-medium text-gray-900 mb-2">
               {getStatusText()}
             </h4>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 mb-4">
               {getStatusDescription()}
             </p>
+            
+            {/* Sync Progress Indicators */}
+            {syncStatus?.status === 'syncing' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                  <Mail className="h-4 w-4" />
+                  <span>Syncing Gmail emails...</span>
+                </div>
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                  <Calendar className="h-4 w-4" />
+                  <span>Syncing Calendar events...</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

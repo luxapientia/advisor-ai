@@ -378,6 +378,66 @@ class GoogleService:
             logger.error("Failed to get Calendar events", error=str(e))
             raise ExternalServiceError("calendar", "Failed to get Calendar events")
     
+    def _parse_calendar_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Parse Google Calendar event data for RAG ingestion.
+        
+        Args:
+            event: Raw Google Calendar event data
+            
+        Returns:
+            Dict: Parsed event data with summary, content, and metadata
+        """
+        start = event.get("start", {})
+        end = event.get("end", {})
+        
+        start_time = start.get("dateTime") or start.get("date", "")
+        end_time = end.get("dateTime") or end.get("date", "")
+        
+        attendees = []
+        for attendee in event.get("attendees", []):
+            attendees.append({
+                "email": attendee.get("email", ""),
+                "name": attendee.get("displayName", ""),
+                "status": attendee.get("responseStatus", "needsAction")
+            })
+        
+        content_parts = []
+        if event.get("description"):
+            content_parts.append(f"Description: {event['description']}")
+        
+        if event.get("location"):
+            content_parts.append(f"Location: {event['location']}")
+        
+        if attendees:
+            attendee_list = ", ".join([f"{att['name']} ({att['email']})" for att in attendees if att['email']])
+            if attendee_list:
+                content_parts.append(f"Attendees: {attendee_list}")
+        
+        content = "\n".join(content_parts) if content_parts else event.get("summary", "")
+        
+        return {
+            "id": event["id"],
+            "summary": event.get("summary", ""),
+            "description": event.get("description", ""),
+            "start": start_time,
+            "end": end_time,
+            "location": event.get("location", ""),
+            "attendees": attendees,
+            "status": event.get("status", "confirmed"),
+            "content": content,
+            "metadata": {
+                "start": start_time,
+                "end": end_time,
+                "attendees": attendees,
+                "location": event.get("location", ""),
+                "status": event.get("status", "confirmed"),
+                "event_id": event["id"],
+                "creator": event.get("creator", {}).get("email", ""),
+                "organizer": event.get("organizer", {}).get("email", "")
+            }
+        }
+    
     async def create_calendar_event(
         self,
         credentials: Credentials,

@@ -108,6 +108,8 @@ const Chat: React.FC = () => {
   };
 
   const handleSessionsUpdate = async () => {
+    if (!user) return; // Don't update sessions if user is not authenticated
+    
     try {
       const sessionsData = await chatService.getSessions();
       setSessions(sessionsData);
@@ -140,6 +142,8 @@ const Chat: React.FC = () => {
   // Load sessions on mount
   useEffect(() => {
     const loadSessions = async () => {
+      if (!user) return; // Don't load sessions if user is not authenticated
+      
       try {
         const sessionsData = await chatService.getSessions();
         setSessions(sessionsData);
@@ -150,7 +154,7 @@ const Chat: React.FC = () => {
     };
 
     loadSessions();
-  }, [setSessions]);
+  }, [user, setSessions]);
 
   const createNewSession = useCallback(async () => {
     try {
@@ -170,6 +174,8 @@ const Chat: React.FC = () => {
 
   // Load specific session or most recent session
   const loadSession = useCallback(async () => {
+    if (!user) return; // Don't load session if user is not authenticated
+    
     if (sessionId) {
       // Only load if we haven't already loaded this session
       if (loadedSessionId.current === sessionId) {
@@ -209,7 +215,7 @@ const Chat: React.FC = () => {
         });
       }
     }
-  }, [sessionId, navigate, setCurrentSession, setMessages, setLoading]);
+  }, [user, sessionId, navigate, setCurrentSession, setMessages, setLoading]);
 
   useEffect(() => {
     loadSession();

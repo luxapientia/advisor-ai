@@ -65,11 +65,24 @@ async def start_gmail_sync(
             detail="User does not have Google access"
         )
     
+    # Check if sync is stuck (syncing for more than 30 minutes)
     if current_user.google_sync_status == "syncing":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Google sync is already in progress"
-        )
+        # Check if sync has been running for more than 30 minutes
+        if (current_user.google_sync_completed_at and 
+            datetime.utcnow() - current_user.google_sync_completed_at > timedelta(minutes=30)):
+            logger.warning("Detected stuck sync, resetting status", user_id=str(current_user.id))
+            # Reset stuck sync
+            await db.execute(
+                update(User)
+                .where(User.id == current_user.id)
+                .values(google_sync_status="error", google_sync_error="Sync was stuck and reset")
+            )
+            await db.commit()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google sync is already in progress"
+            )
     
     # if current_user.google_sync_status == "completed":
     #     raise HTTPException(
@@ -259,12 +272,12 @@ async def _run_google_sync_with_progress(
             from datetime import datetime, timedelta
             if last_sync_time:
                 # Incremental sync - get events from last sync to now + 30 days
-                time_min = last_sync_time.isoformat()
-                time_max = (datetime.utcnow() + timedelta(days=30)).isoformat()
+                time_min = last_sync_time.isoformat() + 'Z'  # Add Z for UTC timezone
+                time_max = (datetime.utcnow() + timedelta(days=30)).isoformat() + 'Z'
             else:
                 # First sync - get events from 90 days ago to 30 days in future
-                time_min = (datetime.utcnow() - timedelta(days=90)).isoformat()
-                time_max = (datetime.utcnow() + timedelta(days=30)).isoformat()
+                time_min = (datetime.utcnow() - timedelta(days=90)).isoformat() + 'Z'
+                time_max = (datetime.utcnow() + timedelta(days=30)).isoformat() + 'Z'
             
             events = await google_service.get_calendar_events(
                 credentials=credentials,

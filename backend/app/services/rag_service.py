@@ -80,7 +80,20 @@ class RAGService:
                     )
                 )
             )
-            existing_doc = result.scalar_one_or_none()
+            existing_docs = result.scalars().all()
+            existing_doc = existing_docs[0] if existing_docs else None
+            
+            # If there are duplicates, log and clean them up
+            if len(existing_docs) > 1:
+                logger.warning(f"Found {len(existing_docs)} duplicate documents, cleaning up", 
+                    user_id=str(user_id), source=source, source_id=source_id)
+                
+                # Keep the first document, delete the rest
+                for duplicate_doc in existing_docs[1:]:
+                    await self.db.delete(duplicate_doc)
+                    logger.info(f"Deleted duplicate document", document_id=str(duplicate_doc.id))
+                
+                await self.db.commit()
             
             if existing_doc:
                 # Check if content has actually changed
