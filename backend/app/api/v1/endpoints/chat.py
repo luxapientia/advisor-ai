@@ -22,6 +22,7 @@ from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage
 from app.services.ai_service import AIService
 from app.services.rag_service import RAGService
+from app.services.tool_service import ToolService
 from app.schemas.chat import (
     ChatMessageRequest,
     ChatMessageResponse,
@@ -473,17 +474,27 @@ async def stream_message(
                 
                 # Generate AI response
                 ai_service = AIService()
+                tool_service = ToolService(db)
                 response_generator = ai_service.chat_completion(
                     messages=messages,
                     user_id=str(current_user.id),
                     context=context,
-                    stream=True
+                    tools=tool_service.get_tools(),
+                    stream=True,
+                    tool_service=tool_service,
+                    user=current_user
                 )
                 
                 full_content = ""
                 async for chunk in response_generator:
                     if chunk["type"] == "content":
                         full_content += chunk["content"]
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                    elif chunk["type"] == "tool_calls":
+                        # Send tool calls to frontend
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                    elif chunk["type"] == "tool_results":
+                        # Send tool results to frontend
                         yield f"data: {json.dumps(chunk)}\n\n"
                     elif chunk["type"] == "finish":
                         # Update assistant message

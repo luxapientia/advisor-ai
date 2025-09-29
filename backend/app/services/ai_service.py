@@ -122,7 +122,9 @@ class AIService:
         user_id: str,
         context: Optional[List[Dict[str, Any]]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        stream: bool = False
+        stream: bool = False,
+        tool_service: Optional[Any] = None,
+        user: Optional[Any] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Generate chat completion using OpenAI.
@@ -133,6 +135,8 @@ class AIService:
             context: RAG context for augmentation
             tools: Available tools for function calling
             stream: Whether to stream the response
+            tool_service: Tool service for executing tools (required for streaming with tools)
+            user: User object for tool execution (required for streaming with tools)
             
         Yields:
             Dict: Chat completion chunks or final response
@@ -160,7 +164,7 @@ class AIService:
                 request_data["tool_choice"] = "auto"
             
             if stream:
-                async for chunk in self._stream_chat_completion(request_data, user_id, start_time):
+                async for chunk in self._stream_chat_completion(request_data, user_id, start_time, tool_service, user):
                     yield chunk
             else:
                 response = await self.client.chat.completions.create(**request_data)
@@ -215,7 +219,9 @@ class AIService:
         self,
         request_data: Dict[str, Any],
         user_id: str,
-        start_time: datetime
+        start_time: datetime,
+        tool_service: Optional[Any] = None,
+        user: Optional[Any] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Stream chat completion response.
@@ -224,6 +230,8 @@ class AIService:
             request_data: OpenAI API request data
             user_id: User ID for logging
             start_time: Request start time
+            tool_service: Tool service for executing tools
+            user: User object for tool execution
             
         Yields:
             Dict: Streaming response chunks
@@ -265,25 +273,138 @@ class AIService:
                                 tool_calls[tool_call.index]["function"]["arguments"] += tool_call.function.arguments
                     
                     if choice.finish_reason:
-                        # Log interaction
-                        duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
-                        
-                        log_ai_interaction(
-                            interaction_type="chat_completion_stream",
-                            user_id=user_id,
-                            model=self.model,
-                            tokens_used=0,  # Streaming doesn't provide token count
-                            duration_ms=duration_ms
-                        )
-                        
-                        yield {
-                            "type": "finish",
-                            "content": content,
-                            "role": "assistant",
-                            "finish_reason": choice.finish_reason,
-                            "tool_calls": [tc for tc in tool_calls if tc is not None],
-                            "model_used": self.model
-                        }
+                        # Check if we have tool calls and tool service is available
+                        if tool_calls and tool_service and user:
+                            # Execute tools
+                            tool_results = []
+                            for tool_call in tool_calls:
+                                if tool_call is None:
+                                    continue
+                                    
+                                try:
+                                    # Parse tool arguments
+                                    import json
+                                    arguments = json.loads(tool_call["function"]["arguments"])
+                                    
+                                    # Execute tool
+                                    result = await tool_service.execute_tool(
+                                        tool_name=tool_call["function"]["name"],
+                                        parameters=arguments,
+                                        user=user
+                                    )
+                                    
+                                    tool_results.append({
+                                        "tool_call_id": tool_call["id"],
+                                        "name": tool_call["function"]["name"],
+                                        "result": result
+                                    })
+                                    
+                                except Exception as e:
+                                    logger.error("Tool execution failed", tool_name=tool_call["function"]["name"], error=str(e))
+                                    tool_results.append({
+                                        "tool_call_id": tool_call["id"],
+                                        "name": tool_call["function"]["name"],
+                                        "result": {"error": f"Tool execution failed: {str(e)}"}
+                                    })
+                            
+                            # Send tool results
+                            yield {
+                                "type": "tool_results",
+                                "tool_results": tool_results
+                            }
+                            
+                            # Create follow-up request with tool results
+                            follow_up_messages = request_data["messages"] + [
+                                {
+                                    "role": "assistant",
+                                    "content": content,
+                                    "tool_calls": [
+                                        {
+                                            "id": tc["id"],
+                                            "type": tc["type"],
+                                            "function": {
+                                                "name": tc["function"]["name"],
+                                                "arguments": tc["function"]["arguments"]
+                                            }
+                                        }
+                                        for tc in tool_calls if tc is not None
+                                    ]
+                                }
+                            ]
+                            
+                            # Add tool result messages
+                            for tool_result in tool_results:
+                                follow_up_messages.append({
+                                    "role": "tool",
+                                    "content": json.dumps(tool_result["result"]),
+                                    "tool_call_id": tool_result["tool_call_id"]
+                                })
+                            
+                            # Get final response after tool execution
+                            follow_up_request = {
+                                **request_data,
+                                "messages": follow_up_messages,
+                                "tools": None,  # Remove tools from follow-up request
+                                "tool_choice": None
+                            }
+                            
+                            # Stream the final response
+                            final_stream = await self.client.chat.completions.create(**follow_up_request)
+                            
+                            final_content = ""
+                            async for final_chunk in final_stream:
+                                if final_chunk.choices:
+                                    final_choice = final_chunk.choices[0]
+                                    
+                                    if final_choice.delta.content:
+                                        final_content += final_choice.delta.content
+                                        yield {
+                                            "type": "content",
+                                            "content": final_choice.delta.content,
+                                            "role": "assistant"
+                                        }
+                                    
+                                    if final_choice.finish_reason:
+                                        # Log interaction
+                                        duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+                                        
+                                        log_ai_interaction(
+                                            interaction_type="chat_completion_stream",
+                                            user_id=user_id,
+                                            model=self.model,
+                                            tokens_used=0,
+                                            duration_ms=duration_ms
+                                        )
+                                        
+                                        yield {
+                                            "type": "finish",
+                                            "content": final_content,
+                                            "role": "assistant",
+                                            "finish_reason": final_choice.finish_reason,
+                                            "tool_calls": [tc for tc in tool_calls if tc is not None],
+                                            "model_used": self.model
+                                        }
+                                        break
+                        else:
+                            # No tool calls or no tool service, finish normally
+                            duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+                            
+                            log_ai_interaction(
+                                interaction_type="chat_completion_stream",
+                                user_id=user_id,
+                                model=self.model,
+                                tokens_used=0,
+                                duration_ms=duration_ms
+                            )
+                            
+                            yield {
+                                "type": "finish",
+                                "content": content,
+                                "role": "assistant",
+                                "finish_reason": choice.finish_reason,
+                                "tool_calls": [tc for tc in tool_calls if tc is not None],
+                                "model_used": self.model
+                            }
                         break
                         
         except Exception as e:

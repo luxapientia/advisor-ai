@@ -606,11 +606,12 @@ class ToolService:
     def _get_google_credentials(self, user: User):
         """Get Google OAuth credentials for user."""
         from google.oauth2.credentials import Credentials
+        from app.core.config import settings
         
         return Credentials(
             token=user.google_access_token,
             refresh_token=user.google_refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=user.google_client_id,
-            client_secret=user.google_client_secret
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET
         )
