@@ -25,41 +25,17 @@ router = APIRouter()
 
 @router.get("/sync/status")
 async def get_gmail_sync_status(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
     Get Google sync status for the current user.
     
     Args:
         current_user: Current authenticated user
-        db: Database session
         
     Returns:
         Dict: Sync status information
     """
-    # Before checking has_google_access, refresh token if needed
-    if (current_user.google_access_token and 
-        current_user.google_refresh_token and 
-        current_user.google_token_expires_at and 
-        current_user.google_token_expires_at <= datetime.utcnow()):
-        
-        try:
-            # Refresh the access token
-            google_service = GoogleService()
-            tokens = await google_service.refresh_access_token(current_user.google_refresh_token)
-            
-            # Update user with new tokens
-            current_user.google_access_token = tokens["access_token"]
-            current_user.google_token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
-            
-            await db.commit()
-            logger.info("Refreshed Google access token for user", user_id=str(current_user.id))
-            
-        except Exception as e:
-            logger.error("Failed to refresh Google access token", user_id=str(current_user.id), error=str(e))
-            # Don't raise exception here, just log the error
-    
     return {
         "status": current_user.google_sync_status,
         "needed": current_user.google_sync_needed,
@@ -74,7 +50,7 @@ async def start_gmail_sync(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, str]:
     """
-    Start Gmail sync for the current user.
+    Start Google sync for the current user.
     
     Args:
         current_user: Current authenticated user
@@ -83,31 +59,6 @@ async def start_gmail_sync(
     Returns:
         Dict: Sync start confirmation
     """
-    # Before checking has_google_access, refresh token if needed
-    if (current_user.google_access_token and 
-        current_user.google_refresh_token and 
-        current_user.google_token_expires_at and 
-        current_user.google_token_expires_at <= datetime.utcnow()):
-        
-        try:
-            # Refresh the access token
-            google_service = GoogleService()
-            tokens = await google_service.refresh_access_token(current_user.google_refresh_token)
-            
-            # Update user with new tokens
-            current_user.google_access_token = tokens["access_token"]
-            current_user.google_token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
-            
-            await db.commit()
-            logger.info("Refreshed Google access token for user", user_id=str(current_user.id))
-            
-        except Exception as e:
-            logger.error("Failed to refresh Google access token", user_id=str(current_user.id), error=str(e))
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to refresh Google access token. Please reconnect your Google account."
-            )
-
     if not current_user.has_google_access:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

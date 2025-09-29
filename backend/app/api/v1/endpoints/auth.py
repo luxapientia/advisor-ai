@@ -78,6 +78,25 @@ async def get_current_user(
         if not user.is_active:
             raise AuthenticationError("User account is disabled")
         
+        # Auto-refresh Google OAuth token if expired
+        if (user.google_access_token and 
+            user.google_refresh_token and 
+            user.google_token_expires_at and 
+            user.google_token_expires_at <= datetime.utcnow()):
+            
+            try:
+                google_service = GoogleService()
+                tokens = await google_service.refresh_access_token(user.google_refresh_token)
+                
+                user.google_access_token = tokens["access_token"]
+                user.google_token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
+                
+                logger.info("Auto-refreshed Google OAuth token", user_id=str(user.id))
+                
+            except Exception as e:
+                logger.warning("Failed to auto-refresh Google OAuth token", user_id=str(user.id), error=str(e))
+                # Don't raise exception - user can still use the app, just without Google features
+        
         # Update last login
         user.last_login_at = datetime.utcnow()
         await db.commit()
