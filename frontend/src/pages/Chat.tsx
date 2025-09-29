@@ -4,7 +4,7 @@ import { useChat } from '../hooks/useChat';
 import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/auth';
 import { chatService } from '../services/chat';
-import { gmailSyncService } from '../services/gmailSync';
+import { googleSyncService } from '../services/googleSync';
 import { ChatMessage, ChatSession } from '../types';
 import ChatMessageComponent from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
@@ -13,7 +13,7 @@ import ChatSidebar from '../components/ChatSidebar';
 import ChatEmptyState from '../components/ChatEmptyState';
 import ContextBar from '../components/ContextBar';
 import LoadingSpinner from '../components/LoadingSpinner';
-import GmailSyncModal from '../components/GmailSyncModal';
+import GoogleSyncModal from '../components/GoogleSyncModal';
 import toast from 'react-hot-toast';
 
 const Chat: React.FC = () => {
@@ -22,8 +22,7 @@ const Chat: React.FC = () => {
   const { user, refreshUser, logout } = useAuth();
   const [connectingHubSpot, setConnectingHubSpot] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true); // Sidebar open by default on desktop
-  const [showGmailSyncModal, setShowGmailSyncModal] = useState(false);
-  const [gmailSyncChecked, setGmailSyncChecked] = useState(false);
+  const [showGoogleSyncModal, setShowGoogleSyncModal] = useState(false);
   
   const {
     currentSession,
@@ -118,27 +117,25 @@ const Chat: React.FC = () => {
     }
   };
 
-  // Check Gmail sync status and show modal if needed
+  // Check Google sync status and show modal if needed
   useEffect(() => {
-    const checkGmailSync = async () => {
-      if (!user || gmailSyncChecked) return;
+    const checkGoogleSync = async () => {
+      if (!user) return;
       
       try {
-        const syncStatus = await gmailSyncService.getSyncStatus();
-        setGmailSyncChecked(true);
+        const syncStatus = await googleSyncService.getSyncStatus();
         
         // Show modal if sync is needed
         if (syncStatus.needed) {
-          setShowGmailSyncModal(true);
+          setShowGoogleSyncModal(true);
         }
       } catch (error) {
-        console.error('Failed to check Gmail sync status:', error);
-        setGmailSyncChecked(true);
+        console.error('Failed to check Google sync status:', error);
       }
     };
 
-    checkGmailSync();
-  }, [user, gmailSyncChecked]);
+    checkGoogleSync();
+  }, [user]);
 
   // Load sessions on mount
   useEffect(() => {
@@ -365,11 +362,11 @@ const Chat: React.FC = () => {
         </div>
       </div>
 
-      {/* Gmail Sync Modal */}
-      <GmailSyncModal
-        isOpen={showGmailSyncModal}
+      {/* Google Sync Modal */}
+      <GoogleSyncModal
+        isOpen={showGoogleSyncModal}
         onSyncComplete={() => {
-          setShowGmailSyncModal(false);
+          setShowGoogleSyncModal(false);
         }}
       />
     </div>
