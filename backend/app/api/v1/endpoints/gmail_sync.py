@@ -4,7 +4,7 @@ Gmail sync endpoints for managing email synchronization.
 This module handles Gmail sync status, progress tracking, and manual sync triggers.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any
 
 import structlog
@@ -59,6 +59,31 @@ async def start_gmail_sync(
     Returns:
         Dict: Sync start confirmation
     """
+    # Before checking has_google_access, refresh token if needed
+    if (current_user.google_access_token and 
+        current_user.google_refresh_token and 
+        current_user.google_token_expires_at and 
+        current_user.google_token_expires_at <= datetime.utcnow()):
+        
+        try:
+            # Refresh the access token
+            google_service = GoogleService()
+            tokens = await google_service.refresh_access_token(current_user.google_refresh_token)
+            
+            # Update user with new tokens
+            current_user.google_access_token = tokens["access_token"]
+            current_user.google_token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
+            
+            await db.commit()
+            logger.info("Refreshed Google access token for user", user_id=str(current_user.id))
+            
+        except Exception as e:
+            logger.error("Failed to refresh Google access token", user_id=str(current_user.id), error=str(e))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to refresh Google access token. Please reconnect your Google account."
+            )
+
     if not current_user.has_google_access:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -71,11 +96,11 @@ async def start_gmail_sync(
             detail="Google sync is already in progress"
         )
     
-    if current_user.google_sync_status == "completed":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Google sync is already completed"
-        )
+    # if current_user.google_sync_status == "completed":
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Google sync is already completed"
+    #     )
     
     # Set status to syncing immediately to prevent concurrent syncs
     await db.execute(

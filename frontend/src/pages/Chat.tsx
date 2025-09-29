@@ -40,6 +40,7 @@ const Chat: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadedSessionId = useRef<string | null>(null);
+  const hasLoadedSession = useRef(false);
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -171,52 +172,51 @@ const Chat: React.FC = () => {
   }, [setCurrentSession, setSessions, setMessages, navigate, setLoading]);
 
   // Load specific session or most recent session
-  useEffect(() => {
-    const loadSession = async () => {
-      if (sessionId) {
-        // Only load if we haven't already loaded this session
-        if (loadedSessionId.current === sessionId) {
-          return;
-        }
-        
-        try {
-          setLoading(true);
-          const session = await chatService.getSession(sessionId);
-          setCurrentSession(session);
-          
-          const history = await chatService.getChatHistory(sessionId);
-          setMessages(history.messages);
-          
-          // Mark this session as loaded
-          loadedSessionId.current = sessionId;
-        } catch (error) {
-          console.error('Failed to load session:', error);
-          toast.error('Failed to load chat session');
-          navigate('/chat');
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        // No sessionId - load the most recent session if available
-        // Only navigate if we don't already have a current session loaded
-        if (!currentSession) {
-          // Try to get sessions first, but don't create dependency
-          chatService.getSessions().then(sessionList => {
-            if (sessionList.length > 0) {
-              const mostRecentSession = sessionList[0]; // Sessions are already sorted by updated_at
-              setCurrentSession(mostRecentSession);
-              navigate(`/chat/${mostRecentSession.id}`);
-            }
-            // If no sessions exist, show empty state (don't auto-create)
-          }).catch(error => {
-            console.error('Failed to get sessions:', error);
-          });
-        }
+  const loadSession = useCallback(async () => {
+    if (sessionId) {
+      // Only load if we haven't already loaded this session
+      if (loadedSessionId.current === sessionId) {
+        return;
       }
-    };
+      
+      try {
+        setLoading(true);
+        const session = await chatService.getSession(sessionId);
+        setCurrentSession(session);
+        
+        const history = await chatService.getChatHistory(sessionId);
+        setMessages(history.messages);
+        
+        // Mark this session as loaded
+        loadedSessionId.current = sessionId;
+      } catch (error) {
+        console.error('Failed to load session:', error);
+        toast.error('Failed to load chat session');
+        navigate('/chat');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // No sessionId - load the most recent session if available
+      // Only navigate if we don't already have a current session loaded
+      if (!hasLoadedSession.current) {
+        hasLoadedSession.current = true;
+        chatService.getSessions().then(sessionList => {
+          if (sessionList.length > 0) {
+            const mostRecentSession = sessionList[0];
+            setCurrentSession(mostRecentSession);
+            navigate(`/chat/${mostRecentSession.id}`);
+          }
+        }).catch(error => {
+          console.error('Failed to get sessions:', error);
+        });
+      }
+    }
+  }, [sessionId, navigate, setCurrentSession, setMessages, setLoading]);
 
+  useEffect(() => {
     loadSession();
-  }, [sessionId, navigate]); // Removed sessions and currentSession dependencies
+  }, [loadSession]);
 
   const handleSendMessage = async (message: string) => {
     if (!currentSession || !message.trim()) return;
