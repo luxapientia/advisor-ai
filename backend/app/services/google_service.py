@@ -300,24 +300,32 @@ class GoogleService:
             Dict: Sent message information
         """
         try:
+            import base64
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            
             service = self.get_gmail_service(credentials)
             
-            # Create message
-            message = {
-                "to": to,
-                "subject": subject,
-                "body": body
-            }
+            # Create MIME message
+            message = MIMEMultipart()
+            message['to'] = to
+            message['subject'] = subject
             
             if cc:
-                message["cc"] = cc
+                message['cc'] = cc
             if bcc:
-                message["bcc"] = bcc
+                message['bcc'] = bcc
+            
+            # Add body
+            message.attach(MIMEText(body, 'plain'))
+            
+            # Encode message
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
             
             # Send message
             sent_message = service.users().messages().send(
                 userId="me",
-                body=message
+                body={'raw': raw_message}
             ).execute()
             
             logger.info("Sent Gmail message", message_id=sent_message["id"], to=to)
