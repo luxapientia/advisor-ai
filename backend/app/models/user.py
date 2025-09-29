@@ -116,7 +116,7 @@ class User(Base):
         """Check if Google sync is needed."""
         return (
             self.has_google_access and
-            self.google_sync_status in ["none", "error"]
+            self.google_sync_status in ["none", "error", "completed"]
         )
     
     @property
