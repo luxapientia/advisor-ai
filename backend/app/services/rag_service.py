@@ -52,7 +52,7 @@ class RAGService:
         document_type: str,
         title: str,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Document:
         """
         Ingest a document into the RAG system.
@@ -83,20 +83,35 @@ class RAGService:
             existing_doc = result.scalar_one_or_none()
             
             if existing_doc:
+                # Check if content has actually changed
+                content_changed = (
+                    existing_doc.title != title or 
+                    existing_doc.content != content or 
+                    existing_doc.metadata != (metadata or {})
+                )
+                
                 # Update existing document
                 existing_doc.title = title
                 existing_doc.content = content
                 existing_doc.metadata = metadata or {}
                 existing_doc.updated_at = datetime.utcnow()
-                existing_doc.is_processed = False
                 
-                # Delete existing chunks
-                await self.db.execute(
-                    delete(DocumentChunk).where(DocumentChunk.document_id == existing_doc.id)
-                )
+                # Only reprocess if content changed
+                if content_changed:
+                    existing_doc.is_processed = False
+                    
+                    # Delete existing chunks
+                    await self.db.execute(
+                        delete(DocumentChunk).where(DocumentChunk.document_id == existing_doc.id)
+                    )
+                    
+                    logger.info("Updated existing document with content changes", 
+                        document_id=str(existing_doc.id), source=source)
+                else:
+                    logger.info("Document unchanged, skipping reprocessing", 
+                        document_id=str(existing_doc.id), source=source)
                 
                 document = existing_doc
-                logger.info("Updated existing document", document_id=str(document.id), source=source)
             else:
                 # Create new document
                 document = Document(
@@ -115,8 +130,9 @@ class RAGService:
             await self.db.commit()
             await self.db.refresh(document)
             
-            # Process document for embeddings
-            await self._process_document_for_embeddings(document)
+            # Process document for embeddings only if needed
+            if not document.is_processed:
+                await self._process_document_for_embeddings(document)
             
             return document
             
@@ -157,7 +173,6 @@ class RAGService:
             
             # Mark document as processed
             document.is_processed = True
-            document.summary = await self.ai_service.summarize_text(document.content)
             
             await self.db.commit()
             
@@ -205,20 +220,23 @@ class RAGService:
             if document_types:
                 query = query.where(Document.document_type.in_(document_types))
             
-            # Add similarity search
-            query = query.order_by(
-                DocumentChunk.embedding.cosine_distance(query_embedding)
-            ).limit(limit)
+            # Add similarity search  
+            query = query.add_columns(
+                DocumentChunk.embedding.cosine_distance(query_embedding).label("distance")
+            ).order_by("distance").limit(limit)
             
             # Execute query
             result = await self.db.execute(query)
-            chunks = result.scalars().all()
+            chunks_with_distance = result.fetchall()
             
             # Prepare results
             results = []
-            for chunk in chunks:
-                # Calculate similarity score
-                similarity_score = 1 - chunk.embedding.cosine_distance(query_embedding)
+            for row in chunks_with_distance:
+                chunk = row[0]  # DocumentChunk object
+                distance = row[1]  # Distance value
+                
+                # Calculate similarity score (cosine similarity = 1 - cosine_distance)
+                similarity_score = 1 - float(distance)
                 
                 if similarity_score >= self.similarity_threshold:
                     results.append({

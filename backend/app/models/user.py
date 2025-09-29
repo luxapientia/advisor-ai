@@ -8,7 +8,7 @@ authentication, and profile information.
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, JSON
+from sqlalchemy import Boolean, Column, DateTime, String, Text, JSON, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -56,6 +56,18 @@ class User(Base):
     # User preferences and settings
     preferences = Column(JSON, nullable=True, default=dict)
     
+    # Service sync statuses - generic design for all services
+    google_sync_status = Column(String(20), default="none", nullable=False)  # 'none', 'pending', 'syncing', 'completed', 'error'
+    hubspot_sync_status = Column(String(20), default="none", nullable=False)  # 'none', 'pending', 'syncing', 'completed', 'error'
+    
+    # Sync completion timestamps
+    google_sync_completed_at = Column(DateTime, nullable=True)
+    hubspot_sync_completed_at = Column(DateTime, nullable=True)
+    
+    # Sync error messages
+    google_sync_error = Column(Text, nullable=True)
+    hubspot_sync_error = Column(Text, nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -99,6 +111,42 @@ class User(Base):
             self.hubspot_token_expires_at > datetime.utcnow()
         )
     
+    @property
+    def google_sync_needed(self) -> bool:
+        """Check if Google sync is needed."""
+        return (
+            self.has_google_access and
+            self.google_sync_status in ["none", "error"]
+        )
+    
+    @property
+    def google_sync_in_progress(self) -> bool:
+        """Check if Google sync is currently running."""
+        return self.google_sync_status == "syncing"
+    
+    @property
+    def google_sync_completed(self) -> bool:
+        """Check if Google sync has been completed."""
+        return self.google_sync_status == "completed"
+    
+    @property
+    def hubspot_sync_needed(self) -> bool:
+        """Check if HubSpot sync is needed."""
+        return (
+            self.has_hubspot_access and
+            self.hubspot_sync_status in ["none", "error"]
+        )
+    
+    @property
+    def hubspot_sync_in_progress(self) -> bool:
+        """Check if HubSpot sync is currently running."""
+        return self.hubspot_sync_status == "syncing"
+    
+    @property
+    def hubspot_sync_completed(self) -> bool:
+        """Check if HubSpot sync has been completed."""
+        return self.hubspot_sync_status == "completed"
+    
     def to_dict(self) -> dict:
         """Convert user to dictionary representation."""
         return {
@@ -113,6 +161,12 @@ class User(Base):
             "is_verified": self.is_verified,
             "has_google_access": self.has_google_access,
             "has_hubspot_access": self.has_hubspot_access,
+            "google_sync_status": self.google_sync_status,
+            "google_sync_completed_at": self.google_sync_completed_at.isoformat() if self.google_sync_completed_at else None,
+            "google_sync_error": self.google_sync_error,
+            "hubspot_sync_status": self.hubspot_sync_status,
+            "hubspot_sync_completed_at": self.hubspot_sync_completed_at.isoformat() if self.hubspot_sync_completed_at else None,
+            "hubspot_sync_error": self.hubspot_sync_error,
             "preferences": self.preferences,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

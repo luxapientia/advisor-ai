@@ -4,6 +4,7 @@ import { useChat } from '../hooks/useChat';
 import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/auth';
 import { chatService } from '../services/chat';
+import { gmailSyncService } from '../services/gmailSync';
 import { ChatMessage, ChatSession } from '../types';
 import ChatMessageComponent from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
@@ -12,6 +13,7 @@ import ChatSidebar from '../components/ChatSidebar';
 import ChatEmptyState from '../components/ChatEmptyState';
 import ContextBar from '../components/ContextBar';
 import LoadingSpinner from '../components/LoadingSpinner';
+import GmailSyncModal from '../components/GmailSyncModal';
 import toast from 'react-hot-toast';
 
 const Chat: React.FC = () => {
@@ -20,6 +22,8 @@ const Chat: React.FC = () => {
   const { user, refreshUser, logout } = useAuth();
   const [connectingHubSpot, setConnectingHubSpot] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true); // Sidebar open by default on desktop
+  const [showGmailSyncModal, setShowGmailSyncModal] = useState(false);
+  const [gmailSyncChecked, setGmailSyncChecked] = useState(false);
   
   const {
     currentSession,
@@ -113,6 +117,28 @@ const Chat: React.FC = () => {
     }
   };
 
+  // Check Gmail sync status and show modal if needed
+  useEffect(() => {
+    const checkGmailSync = async () => {
+      if (!user || gmailSyncChecked) return;
+      
+      try {
+        const syncStatus = await gmailSyncService.getSyncStatus();
+        setGmailSyncChecked(true);
+        
+        // Show modal if sync is needed
+        if (syncStatus.needed) {
+          setShowGmailSyncModal(true);
+        }
+      } catch (error) {
+        console.error('Failed to check Gmail sync status:', error);
+        setGmailSyncChecked(true);
+      }
+    };
+
+    checkGmailSync();
+  }, [user, gmailSyncChecked]);
+
   // Load sessions on mount
   useEffect(() => {
     const loadSessions = async () => {
@@ -172,18 +198,25 @@ const Chat: React.FC = () => {
         }
       } else {
         // No sessionId - load the most recent session if available
-        if (sessions.length > 0 && !currentSession) {
-          const mostRecentSession = sessions[0]; // Sessions are already sorted by updated_at
-          setCurrentSession(mostRecentSession);
-          navigate(`/chat/${mostRecentSession.id}`);
+        // Only navigate if we don't already have a current session loaded
+        if (!currentSession) {
+          // Try to get sessions first, but don't create dependency
+          chatService.getSessions().then(sessionList => {
+            if (sessionList.length > 0) {
+              const mostRecentSession = sessionList[0]; // Sessions are already sorted by updated_at
+              setCurrentSession(mostRecentSession);
+              navigate(`/chat/${mostRecentSession.id}`);
+            }
+            // If no sessions exist, show empty state (don't auto-create)
+          }).catch(error => {
+            console.error('Failed to get sessions:', error);
+          });
         }
-        // If no sessions exist, show empty state (don't auto-create)
       }
     };
 
     loadSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, navigate, sessions, currentSession]);
+  }, [sessionId, navigate]); // Removed sessions and currentSession dependencies
 
   const handleSendMessage = async (message: string) => {
     if (!currentSession || !message.trim()) return;
@@ -331,6 +364,14 @@ const Chat: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Gmail Sync Modal */}
+      <GmailSyncModal
+        isOpen={showGmailSyncModal}
+        onSyncComplete={() => {
+          setShowGmailSyncModal(false);
+        }}
+      />
     </div>
   );
 };

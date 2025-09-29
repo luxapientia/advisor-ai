@@ -6,6 +6,7 @@ for interacting with Gmail and Google Calendar APIs.
 """
 
 import secrets
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 
@@ -433,7 +434,8 @@ class GoogleService:
         user_id: str,
         rag_service,
         days_back: int = 90,
-        max_results: int = 500
+        max_results: int = 500,
+        last_sync_time: Optional[datetime] = None
     ) -> Dict[str, Any]:
         """
         Sync Gmail emails into the RAG system.
@@ -442,8 +444,9 @@ class GoogleService:
             credentials: Google OAuth credentials
             user_id: User ID for RAG storage
             rag_service: RAG service instance for document ingestion
-            days_back: Number of days back to sync emails
+            days_back: Number of days back to sync emails (for first sync)
             max_results: Maximum number of emails to sync
+            last_sync_time: Last sync completion time for incremental sync
             
         Returns:
             Dict: Sync results and statistics
@@ -451,8 +454,17 @@ class GoogleService:
         try:
             logger.info("Starting Gmail email sync", user_id=user_id, days_back=days_back)
             
-            # Get emails from specified time period
-            query = f"newer_than:{days_back}d"
+            # Create incremental query based on last sync
+            if last_sync_time:
+                # Convert to Gmail date format (YYYY/MM/DD)
+                gmail_date = last_sync_time.strftime("%Y/%m/%d")
+                query = f"after:{gmail_date}"
+                logger.info("Using incremental sync", user_id=user_id, last_sync=gmail_date)
+            else:
+                # First sync - get last N days
+                query = f"newer_than:{days_back}d"
+                logger.info("Using full sync (first time)", user_id=user_id)
+            
             messages = await self.get_gmail_messages(
                 credentials=credentials,
                 query=query,

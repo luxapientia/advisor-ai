@@ -180,30 +180,7 @@ async def google_callback(
             refresh_token=refresh_token
         )
         
-        # Trigger Gmail sync in background
-        try:
-            rag_service = RAGService(db)
-            
-            # Create Google credentials from user tokens
-            from google.oauth2.credentials import Credentials
-            credentials = Credentials(
-                token=user.google_access_token,
-                refresh_token=user.google_refresh_token,
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=None,
-                client_secret=None,
-                expiry=user.google_token_expires_at
-            )
-            
-            # Run sync in background (don't await to avoid blocking login)
-            asyncio.create_task(google_service.sync_gmail_emails(
-                credentials=credentials,
-                user_id=str(user.id),
-                rag_service=rag_service
-            ))
-            logger.info("Gmail sync triggered for user", user_id=str(user.id))
-        except Exception as e:
-            logger.warning("Failed to trigger Gmail sync", user_id=str(user.id), error=str(e))
+        # Note: Gmail sync is now handled on the chat page to avoid blocking login
         
         log_auth_event(
             event_type="login",
@@ -342,7 +319,8 @@ async def hubspot_callback(
                 asyncio.create_task(google_service.sync_gmail_emails(
                     credentials=credentials,
                     user_id=str(user.id),
-                    rag_service=rag_service
+                    rag_service=rag_service,
+                    last_sync_time=user.google_sync_completed_at
                 ))
                 logger.info("Gmail sync triggered for user", user_id=str(user.id))
         except Exception as e:
@@ -557,30 +535,7 @@ async def google_callback_redirect(
             refresh_token=refresh_token
         )
         
-        # Trigger Gmail sync in background
-        try:
-            rag_service = RAGService(db)
-            
-            # Create Google credentials from user tokens
-            from google.oauth2.credentials import Credentials
-            credentials = Credentials(
-                token=user.google_access_token,
-                refresh_token=user.google_refresh_token,
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=None,
-                client_secret=None,
-                expiry=user.google_token_expires_at
-            )
-            
-            # Run sync in background (don't await to avoid blocking login)
-            asyncio.create_task(google_service.sync_gmail_emails(
-                credentials=credentials,
-                user_id=str(user.id),
-                rag_service=rag_service
-            ))
-            logger.info("Gmail sync triggered for user", user_id=str(user.id))
-        except Exception as e:
-            logger.warning("Failed to trigger Gmail sync", user_id=str(user.id), error=str(e))
+        # Note: Gmail sync is now handled on the chat page to avoid blocking login
         
         # Redirect to frontend with tokens
         frontend_url = "http://localhost:3000/login"
@@ -677,7 +632,8 @@ async def hubspot_callback_redirect(
                 asyncio.create_task(google_service.sync_gmail_emails(
                     credentials=credentials,
                     user_id=str(user.id),
-                    rag_service=rag_service
+                    rag_service=rag_service,
+                    last_sync_time=user.google_sync_completed_at
                 ))
                 logger.info("Gmail sync triggered for user", user_id=str(user.id))
         except Exception as e:

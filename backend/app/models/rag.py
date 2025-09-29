@@ -42,7 +42,6 @@ class Document(Base):
     # Content
     title = Column(String(500), nullable=True)
     content = Column(Text, nullable=False)
-    summary = Column(Text, nullable=True)
     
     # Metadata
     document_metadata = Column(JSON, nullable=True, default=dict)
@@ -81,7 +80,6 @@ class Document(Base):
             "document_type": self.document_type,
             "title": self.title,
             "content": self.content,
-            "summary": self.summary,
             "metadata": self.metadata,
             "is_processed": self.is_processed,
             "processing_error": self.processing_error,
