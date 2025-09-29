@@ -3,11 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
-import Layout from './components/Layout';
 import Login from './pages/Login';
 import Chat from './pages/Chat';
-import Settings from './pages/Settings';
-import Integrations from './pages/Integrations';
 import LoadingSpinner from './components/LoadingSpinner';
 
 // Protected Route Component
@@ -59,18 +56,24 @@ function App() {
             {/* Protected Routes */}
             <Route
               path="/"
+              element={<Navigate to="/chat" replace />}
+            />
+            <Route
+              path="/chat"
               element={
                 <ProtectedRoute>
-                  <Layout />
+                  <Chat />
                 </ProtectedRoute>
               }
-            >
-              <Route index element={<Navigate to="/chat" replace />} />
-              <Route path="chat" element={<Chat />} />
-              <Route path="chat/:sessionId" element={<Chat />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="integrations" element={<Integrations />} />
-            </Route>
+            />
+            <Route
+              path="/chat/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <Chat />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Catch all route */}
             <Route path="*" element={<Navigate to="/chat" replace />} />

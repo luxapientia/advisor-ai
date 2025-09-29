@@ -4,12 +4,11 @@ import { useChat } from '../hooks/useChat';
 import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/auth';
 import { chatService } from '../services/chat';
-import { ChatMessage } from '../types';
+import { ChatMessage, ChatSession } from '../types';
 import ChatMessageComponent from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
 import ChatHeader from '../components/ChatHeader';
-import HubSpotBanner from '../components/HubSpotBanner';
-import SettingsDropdown from '../components/SettingsDropdown';
+import ChatSidebar from '../components/ChatSidebar';
 import ChatEmptyState from '../components/ChatEmptyState';
 import ContextBar from '../components/ContextBar';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -19,12 +18,12 @@ const Chat: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { user, refreshUser, logout } = useAuth();
-  const [showHubSpotBanner, setShowHubSpotBanner] = useState(false);
   const [connectingHubSpot, setConnectingHubSpot] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true); // Sidebar open by default on desktop
   
   const {
     currentSession,
+    sessions,
     messages,
     isLoading,
     setCurrentSession,
@@ -48,13 +47,6 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Show HubSpot banner if not connected
-  useEffect(() => {
-    if (user && !user.has_hubspot_access) {
-      setShowHubSpotBanner(true);
-    }
-  }, [user]);
-
   // Handle HubSpot OAuth callback
   useEffect(() => {
     const handleHubSpotCallback = async () => {
@@ -73,7 +65,6 @@ const Chat: React.FC = () => {
         try {
           // Refresh user data to get updated HubSpot access
           await refreshUser();
-          setShowHubSpotBanner(false);
           toast.success('HubSpot connected successfully!');
         } catch (error) {
           console.error('Failed to refresh user data:', error);
@@ -107,8 +98,20 @@ const Chat: React.FC = () => {
     navigate('/login');
   };
 
-  const handleSettingsToggle = () => {
-    setShowSettings(!showSettings);
+  const handleSessionSelect = (session: ChatSession) => {
+    setCurrentSession(session);
+    navigate(`/chat/${session.id}`);
+    setShowSidebar(false); // Close sidebar on mobile after selection
+  };
+
+  const handleSessionsUpdate = async () => {
+    try {
+      const sessionsData = await chatService.getSessions();
+      setSessions(sessionsData);
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+      toast.error('Failed to load chat sessions');
+    }
   };
 
   // Load sessions on mount
@@ -142,7 +145,7 @@ const Chat: React.FC = () => {
     }
   }, [setCurrentSession, setSessions, setMessages, navigate, setLoading]);
 
-  // Load specific session or create new one
+  // Load specific session or most recent session
   useEffect(() => {
     const loadSession = async () => {
       if (sessionId) {
@@ -168,16 +171,20 @@ const Chat: React.FC = () => {
         } finally {
           setLoading(false);
         }
-      } else if (!hasCreatedSession.current) {
-        // Create new session if no sessionId and no current session (only once)
-        hasCreatedSession.current = true;
-        createNewSession();
+      } else {
+        // No sessionId - load the most recent session if available
+        if (sessions.length > 0 && !currentSession) {
+          const mostRecentSession = sessions[0]; // Sessions are already sorted by updated_at
+          setCurrentSession(mostRecentSession);
+          navigate(`/chat/${mostRecentSession.id}`);
+        }
+        // If no sessions exist, show empty state (don't auto-create)
       }
     };
 
     loadSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, navigate]);
+  }, [sessionId, navigate, sessions, currentSession]);
 
   const handleSendMessage = async (message: string) => {
     if (!currentSession || !message.trim()) return;
@@ -260,7 +267,6 @@ const Chat: React.FC = () => {
     }
   };
 
-
   if (isLoading && !currentSession) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -273,10 +279,12 @@ const Chat: React.FC = () => {
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <ChatHeader
-        onNewChat={createNewSession}
         onLogout={handleLogout}
-        onSettingsToggle={handleSettingsToggle}
-        showSettings={showSettings}
+        hasHubSpotAccess={user?.has_hubspot_access || false}
+        onConnectHubSpot={handleConnectHubSpot}
+        connectingHubSpot={connectingHubSpot}
+        user={user}
+        onSidebarToggle={() => setShowSidebar(!showSidebar)}
       />
 
       {/* Context Information Bar */}
@@ -285,45 +293,43 @@ const Chat: React.FC = () => {
         hasHubSpotAccess={user?.has_hubspot_access || false}
       />
 
-      {/* HubSpot Connection Banner */}
-      {showHubSpotBanner && (
-        <HubSpotBanner
-          onConnect={handleConnectHubSpot}
-          onDismiss={() => setShowHubSpotBanner(false)}
-          connecting={connectingHubSpot}
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Chat Sidebar */}
+        <ChatSidebar
+          isOpen={showSidebar}
+          onClose={() => setShowSidebar(false)}
+          sessions={sessions}
+          currentSession={currentSession}
+          onSessionSelect={handleSessionSelect}
+          onNewChat={createNewSession}
+          onSessionsUpdate={handleSessionsUpdate}
         />
-      )}
 
-      {/* Settings Dropdown */}
-      {showSettings && (
-        <SettingsDropdown
-          onConnectHubSpot={handleConnectHubSpot}
-          onLogout={handleLogout}
-          hasHubSpotAccess={user?.has_hubspot_access || false}
-          connectingHubSpot={connectingHubSpot}
-        />
-      )}
+        {/* Chat Content */}
+        <div className="flex-1 flex flex-col">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+            {messages.length === 0 ? (
+              <ChatEmptyState />
+            ) : (
+              messages.map((message) => (
+                <ChatMessageComponent key={message.id} message={message} />
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-        {messages.length === 0 ? (
-          <ChatEmptyState />
-        ) : (
-          messages.map((message) => (
-            <ChatMessageComponent key={message.id} message={message} />
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input Area */}
-      <div className="bg-white border-t border-gray-200 p-4">
-        <div className="max-w-4xl mx-auto">
-          <ChatInput
-            onSendMessage={handleSendMessage}
-            disabled={isLoading}
-            placeholder="Ask anything about your clients, schedule meetings, or manage your CRM..."
-          />
+          {/* Input Area */}
+          <div className="bg-white border-t border-gray-200 p-4">
+            <div className="max-w-4xl mx-auto">
+              <ChatInput
+                onSendMessage={handleSendMessage}
+                disabled={isLoading}
+                placeholder="Ask anything about your clients, schedule meetings, or manage your CRM..."
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

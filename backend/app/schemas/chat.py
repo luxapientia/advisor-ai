@@ -38,7 +38,7 @@ class ChatMessageResponse(BaseModel):
     role: str = Field(..., description="Message role (user, assistant, system)")
     content: str = Field(..., description="Message content")
     message_type: Optional[str] = Field(None, description="Type of message")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Message metadata")
+    message_metadata: Optional[Dict[str, Any]] = Field(None, description="Message metadata")
     model_used: Optional[str] = Field(None, description="AI model used for generation")
     tokens_used: Optional[int] = Field(None, description="Number of tokens used")
     processing_time_ms: Optional[int] = Field(None, description="Processing time in milliseconds")
@@ -50,6 +50,22 @@ class ChatMessageResponse(BaseModel):
     created_at: datetime = Field(..., description="Message creation timestamp")
     updated_at: datetime = Field(..., description="Message update timestamp")
     
+    @field_validator("id", "session_id", mode="before")
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Convert UUID to string if needed."""
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+    
+    @field_validator("message_metadata", mode="before")
+    @classmethod
+    def convert_metadata_to_dict(cls, v):
+        """Convert MetaData object to dict if needed."""
+        if hasattr(v, '__dict__'):
+            return v.__dict__
+        return v
+    
     class Config:
         from_attributes = True
         protected_namespaces = ()  # Allow fields starting with "model_"
@@ -60,8 +76,8 @@ class ChatMessageResponse(BaseModel):
                 "role": "assistant",
                 "content": "I found that John Smith mentioned his kid plays baseball in an email from last week.",
                 "message_type": "text",
-                "metadata": {},
-                "model_used": "gpt-4",
+                "message_metadata": {},
+                "model_used": "gpt-4.1",
                 "tokens_used": 150,
                 "processing_time_ms": 1200,
                 "context_sources": ["gmail", "hubspot"],
@@ -143,7 +159,7 @@ class ChatHistoryResponse(BaseModel):
                         "role": "assistant",
                         "content": "I found that John Smith mentioned his kid plays baseball in an email from last week.",
                         "message_type": "text",
-                        "model_used": "gpt-4",
+                        "model_used": "gpt-4.1",
                         "tokens_used": 150,
                         "context_sources": ["gmail", "hubspot"],
                         "created_at": "2024-01-01T00:00:00Z",

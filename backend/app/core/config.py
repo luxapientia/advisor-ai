@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     
     # OpenAI
     OPENAI_API_KEY: str = Field(..., description="OpenAI API key")
-    OPENAI_MODEL: str = Field(default="gpt-4")
+    OPENAI_MODEL: str = Field(default="gpt-4.1")
     OPENAI_EMBEDDING_MODEL: str = Field(default="text-embedding-3-small")
     
     # Google OAuth

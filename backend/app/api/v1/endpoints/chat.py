@@ -35,6 +35,54 @@ logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 
+async def generate_session_title(user_message: str, db: AsyncSession) -> str:
+    """
+    Generate a title for a chat session based on the first user message.
+    
+    Args:
+        user_message: The first user message content
+        db: Database session
+        
+    Returns:
+        str: Generated title (max 50 characters)
+    """
+    try:
+        # Create a simple title from the first user message
+        # Remove common prefixes and limit length
+        title = user_message.strip()
+        
+        # Remove common question prefixes
+        prefixes_to_remove = [
+            "what is", "what are", "how do", "how can", "how to", "can you",
+            "could you", "would you", "tell me", "explain", "help me",
+            "i need", "i want", "i'm looking for", "show me"
+        ]
+        
+        title_lower = title.lower()
+        for prefix in prefixes_to_remove:
+            if title_lower.startswith(prefix):
+                title = title[len(prefix):].strip()
+                break
+        
+        # Capitalize first letter
+        if title:
+            title = title[0].upper() + title[1:]
+        
+        # Limit to 50 characters and add ellipsis if needed
+        if len(title) > 50:
+            title = title[:47] + "..."
+        
+        # Fallback if title is too short
+        if len(title.strip()) < 3:
+            title = "New Chat"
+            
+        return title
+        
+    except Exception as e:
+        logger.error("Failed to generate session title", error=str(e))
+        return "New Chat"
+
+
 @router.post("/sessions", response_model=ChatSessionResponse)
 async def create_chat_session(
     request: Request,
@@ -50,21 +98,19 @@ async def create_chat_session(
         db: Database session
         
     Returns:
-        ChatSessionResponse: Created chat session
+        ChatSessionResponse: Created session
     """
     try:
-        # Create new chat session
         session = ChatSession(
             user_id=current_user.id,
-            title="New Chat",
-            context={}
+            title=None,  # Will be set when first message is sent
+            is_active=True
         )
-        
         db.add(session)
         await db.commit()
         await db.refresh(session)
         
-        logger.info("Created chat session", user_id=str(current_user.id), session_id=str(session.id))
+        logger.info("Created new chat session", session_id=str(session.id), user_id=str(current_user.id))
         
         return ChatSessionResponse.from_orm(session)
         
@@ -83,14 +129,14 @@ async def get_chat_sessions(
     db: AsyncSession = Depends(get_db)
 ) -> List[ChatSessionResponse]:
     """
-    Get user's chat sessions.
+    Get all chat sessions for the current user.
     
     Args:
         current_user: Current authenticated user
         db: Database session
         
     Returns:
-        List[ChatSessionResponse]: User's chat sessions
+        List[ChatSessionResponse]: List of chat sessions
     """
     try:
         result = await db.execute(
@@ -161,7 +207,7 @@ async def get_chat_history(
     db: AsyncSession = Depends(get_db)
 ) -> ChatHistoryResponse:
     """
-    Get chat history for a session.
+    Get chat history for a specific session.
     
     Args:
         session_id: Chat session ID
@@ -169,7 +215,7 @@ async def get_chat_history(
         db: Database session
         
     Returns:
-        ChatHistoryResponse: Chat history
+        ChatHistoryResponse: Chat history with messages
     """
     try:
         # Verify session belongs to user
@@ -378,6 +424,12 @@ async def stream_message(
         await db.commit()
         await db.refresh(user_message)
         
+        # Generate title if this is the first message in the session
+        if not session.title:
+            title = await generate_session_title(request.message, db)
+            session.title = title
+            await db.commit()
+        
         # Get chat history for context
         result = await db.execute(
             select(ChatMessage)
@@ -512,7 +564,7 @@ async def delete_chat_session(
         db: Database session
         
     Returns:
-        Dict: Deletion confirmation
+        Dict[str, str]: Success message
     """
     try:
         # Verify session belongs to user
@@ -530,11 +582,16 @@ async def delete_chat_session(
                 detail="Chat session not found"
             )
         
-        # Delete session (messages will be deleted by cascade)
+        # Delete all messages in the session first
+        await db.execute(
+            select(ChatMessage).where(ChatMessage.session_id == session_id)
+        )
+        
+        # Delete the session
         await db.delete(session)
         await db.commit()
         
-        logger.info("Deleted chat session", user_id=str(current_user.id), session_id=session_id)
+        logger.info("Deleted chat session", session_id=session_id, user_id=str(current_user.id))
         
         return {"message": "Chat session deleted successfully"}
         
@@ -546,4 +603,58 @@ async def delete_chat_session(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete chat session"
+        )
+
+
+@router.put("/sessions/{session_id}/context")
+async def update_chat_context(
+    session_id: str,
+    request: Dict[str, Any],
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Update chat session context.
+    
+    Args:
+        session_id: Chat session ID
+        request: Context data
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Dict[str, Any]: Updated context
+    """
+    try:
+        # Verify session belongs to user
+        result = await db.execute(
+            select(ChatSession).where(
+                ChatSession.id == session_id,
+                ChatSession.user_id == current_user.id
+            )
+        )
+        session = result.scalar_one_or_none()
+        
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chat session not found"
+            )
+        
+        # Update context
+        session.context = request
+        session.updated_at = datetime.utcnow()
+        
+        await db.commit()
+        
+        return {"context": session.context, "updated_at": session.updated_at}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error("Failed to update chat context", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update chat context"
         )
