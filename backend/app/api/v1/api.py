@@ -7,7 +7,7 @@ including all endpoint routers and middleware.
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, chat, actions, rag, integrations, users, google_sync
+from app.api.v1.endpoints import auth, chat, actions, rag, integrations, users, google_sync, hubspot_sync
 
 api_router = APIRouter()
 
@@ -19,3 +19,4 @@ api_router.include_router(actions.router, prefix="/actions", tags=["actions"])
 api_router.include_router(rag.router, prefix="/rag", tags=["rag"])
 api_router.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 api_router.include_router(google_sync.router, prefix="/google", tags=["google-sync"])
+api_router.include_router(hubspot_sync.router, prefix="/hubspot", tags=["hubspot-sync"])

@@ -111,13 +111,6 @@ class User(Base):
             self.hubspot_token_expires_at > datetime.utcnow()
         )
     
-    @property
-    def google_sync_needed(self) -> bool:
-        """Check if Google sync is needed."""
-        return (
-            self.has_google_access and
-            self.google_sync_status in ["none", "error", "completed"]
-        )
     
     @property
     def google_sync_in_progress(self) -> bool:
@@ -129,13 +122,6 @@ class User(Base):
         """Check if Google sync has been completed."""
         return self.google_sync_status == "completed"
     
-    @property
-    def hubspot_sync_needed(self) -> bool:
-        """Check if HubSpot sync is needed."""
-        return (
-            self.has_hubspot_access and
-            self.hubspot_sync_status in ["none", "error"]
-        )
     
     @property
     def hubspot_sync_in_progress(self) -> bool:

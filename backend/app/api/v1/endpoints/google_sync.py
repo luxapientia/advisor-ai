@@ -38,7 +38,6 @@ async def get_gmail_sync_status(
     """
     return {
         "status": current_user.google_sync_status,
-        "needed": current_user.google_sync_needed,
         "completed": current_user.google_sync_completed,
         "has_google_access": current_user.has_google_access
     }
@@ -83,12 +82,6 @@ async def start_gmail_sync(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Google sync is already in progress"
             )
-    
-    # if current_user.google_sync_status == "completed":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail="Google sync is already completed"
-    #     )
     
     # Set status to syncing immediately to prevent concurrent syncs
     await db.execute(

@@ -45,6 +45,7 @@ async def get_current_user(
 ) -> User:
     """
     Get the current authenticated user from JWT token.
+    Automatically refreshes expired Google access tokens.
     
     Args:
         credentials: HTTP Bearer token credentials
@@ -88,6 +89,7 @@ async def get_current_user(
                 google_service = GoogleService()
                 tokens = await google_service.refresh_access_token(user.google_refresh_token)
                 
+                # Update user with new tokens
                 user.google_access_token = tokens["access_token"]
                 user.google_token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 3600))
                 
@@ -344,6 +346,21 @@ async def hubspot_callback(
                 logger.info("Gmail sync triggered for user", user_id=str(user.id))
         except Exception as e:
             logger.warning("Failed to trigger Gmail sync", user_id=str(user.id), error=str(e))
+        
+        # Trigger HubSpot sync in background (if user has HubSpot access)
+        try:
+            if user.has_hubspot_access:
+                # Import the HubSpot sync function
+                from app.api.v1.endpoints.hubspot_sync import _run_hubspot_sync_with_progress
+                
+                # Run HubSpot sync in background (don't await to avoid blocking login)
+                asyncio.create_task(_run_hubspot_sync_with_progress(
+                    user_id=str(user.id),
+                    access_token=user.hubspot_access_token
+                ))
+                logger.info("HubSpot sync triggered for user", user_id=str(user.id))
+        except Exception as e:
+            logger.warning("Failed to trigger HubSpot sync", user_id=str(user.id), error=str(e))
         
         log_auth_event(
             event_type="login",
@@ -657,6 +674,21 @@ async def hubspot_callback_redirect(
                 logger.info("Gmail sync triggered for user", user_id=str(user.id))
         except Exception as e:
             logger.warning("Failed to trigger Gmail sync", user_id=str(user.id), error=str(e))
+        
+        # Trigger HubSpot sync in background (if user has HubSpot access)
+        try:
+            if user.has_hubspot_access:
+                # Import the HubSpot sync function
+                from app.api.v1.endpoints.hubspot_sync import _run_hubspot_sync_with_progress
+                
+                # Run HubSpot sync in background (don't await to avoid blocking login)
+                asyncio.create_task(_run_hubspot_sync_with_progress(
+                    user_id=str(user.id),
+                    access_token=user.hubspot_access_token
+                ))
+                logger.info("HubSpot sync triggered for user", user_id=str(user.id))
+        except Exception as e:
+            logger.warning("Failed to trigger HubSpot sync", user_id=str(user.id), error=str(e))
         
         # Redirect to frontend with tokens
         frontend_url = "http://localhost:3000/login"
