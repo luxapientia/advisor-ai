@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Advisor AI</title>
+    <style>
+        body { margin: 0; padding: 0; background: #2563eb; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: Arial, sans-serif; }
+        .icon { color: white; font-size: 48px; }
+    </style>
+</head>
+<body>
+    <div class="icon">🤖</div>
+</body>
+</html>
