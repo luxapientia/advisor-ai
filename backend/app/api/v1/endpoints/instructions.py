@@ -70,6 +70,59 @@ async def create_ongoing_instruction(
         )
 
 
+@router.post("/test-workflow")
+async def test_workflow_detection(
+    request: Dict[str, str],
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Test workflow detection for a user query.
+    
+    Args:
+        request: Contains 'query' field
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Dict: Workflow detection result
+    """
+    try:
+        proactive_agent = ProactiveAgent(db)
+        
+        query = request.get("query", "")
+        if not query:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Query is required"
+            )
+        
+        # Detect workflow
+        workflow_task = await proactive_agent.detect_and_execute_workflow(query, current_user)
+        
+        if workflow_task:
+            return {
+                "workflow_detected": True,
+                "workflow_type": workflow_task.input_data.get("workflow_type"),
+                "task_id": str(workflow_task.id),
+                "message": f"Workflow '{workflow_task.input_data.get('workflow_type')}' detected and task created"
+            }
+        else:
+            return {
+                "workflow_detected": False,
+                "message": "No workflow pattern detected in query"
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to test workflow detection", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to test workflow detection"
+        )
+
+
 @router.get("/", response_model=OngoingInstructionListResponse)
 async def get_ongoing_instructions(
     current_user: User = Depends(get_current_user),

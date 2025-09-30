@@ -604,14 +604,26 @@ class ToolService:
         }
     
     def _get_google_credentials(self, user: User):
-        """Get Google OAuth credentials for user."""
+        """Get Google OAuth credentials for user with auto-refresh."""
         from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
         from app.core.config import settings
         
-        return Credentials(
+        credentials = Credentials(
             token=user.google_access_token,
             refresh_token=user.google_refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
             client_id=settings.GOOGLE_CLIENT_ID,
             client_secret=settings.GOOGLE_CLIENT_SECRET
         )
+        
+        # Auto-refresh if expired
+        if credentials.expired and credentials.refresh_token:
+            try:
+                credentials.refresh(Request())
+                logger.info("Auto-refreshed Google credentials for tool execution")
+            except Exception as e:
+                logger.error("Failed to refresh Google credentials", error=str(e))
+                raise ExternalServiceError("google", "Failed to refresh credentials")
+        
+        return credentials

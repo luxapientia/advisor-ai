@@ -543,6 +543,59 @@ class ProactiveAgent:
             logger.error("Failed to get user instructions", error=str(e))
             return []
     
+    async def detect_and_execute_workflow(self, user_query: str, user: User) -> Optional[Task]:
+        """
+        Detect if a user query requires a multi-step workflow and execute it.
+        
+        Args:
+            user_query: User's query
+            user: User object
+            
+        Returns:
+            Optional[Task]: Created workflow task if detected
+        """
+        try:
+            # Simple workflow detection based on keywords
+            workflow_patterns = {
+                "schedule_appointment": [
+                    "schedule", "appointment", "meeting", "book", "set up"
+                ],
+                "create_contact_from_email": [
+                    "create contact", "add contact", "new contact"
+                ],
+                "send_meeting_confirmation": [
+                    "send confirmation", "confirm meeting", "notify attendees"
+                ]
+            }
+            
+            query_lower = user_query.lower()
+            
+            for workflow_type, keywords in workflow_patterns.items():
+                if any(keyword in query_lower for keyword in keywords):
+                    # Create workflow task
+                    task = Task(
+                        user_id=user.id,
+                        task_type="workflow",
+                        title=f"Workflow: {workflow_type}",
+                        description=f"Executing workflow for: {user_query}",
+                        input_data={"query": user_query, "workflow_type": workflow_type},
+                        status="pending",
+                        priority=5
+                    )
+                    
+                    self.db.add(task)
+                    await self.db.commit()
+                    await self.db.refresh(task)
+                    
+                    logger.info("Created workflow task", task_id=str(task.id), workflow_type=workflow_type)
+                    return task
+            
+            return None
+            
+        except Exception as e:
+            logger.error("Failed to detect workflow", error=str(e))
+            return None
+
     async def update_instruction_status(
         self, 
         instruction_id: str, 

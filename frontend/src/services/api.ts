@@ -110,14 +110,45 @@ export const streamChatMessage = async (
 ) => {
   try {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_BASE_URL}/api/v1/chat/sessions/${sessionId}/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ message }),
-    });
+    const refreshToken = localStorage.getItem('refresh_token');
+    
+    const makeRequest = async (accessToken: string) => {
+      return fetch(`${API_BASE_URL}/api/v1/chat/sessions/${sessionId}/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ message }),
+      });
+    };
+
+    let response = await makeRequest(token || '');
+
+    // Handle 401 errors with token refresh
+    if (response.status === 401 && refreshToken) {
+      try {
+        const refreshResponse = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {}, {
+          headers: {
+            'refresh-token': refreshToken,
+          },
+        });
+
+        const { access_token, refresh_token: newRefreshToken } = refreshResponse.data;
+        localStorage.setItem('access_token', access_token);
+        localStorage.setItem('refresh_token', newRefreshToken);
+
+        // Retry with new token
+        response = await makeRequest(access_token);
+      } catch (refreshError) {
+        // Refresh failed, redirect to login
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/login';
+        onError(refreshError);
+        return;
+      }
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

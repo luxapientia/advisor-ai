@@ -23,6 +23,7 @@ from app.models.chat import ChatSession, ChatMessage
 from app.services.ai_service import AIService
 from app.services.rag_service import RAGService
 from app.services.tool_service import ToolService
+from app.services.proactive_agent import ProactiveAgent
 from app.schemas.chat import (
     ChatMessageRequest,
     ChatMessageResponse,
@@ -328,12 +329,21 @@ async def send_message(
             limit=5
         )
         
+        # Get ongoing instructions
+        proactive_agent = ProactiveAgent(db)
+        ongoing_instructions = await proactive_agent.get_user_instructions(str(current_user.id))
+        
         # Generate AI response
         ai_service = AIService()
+        tool_service = ToolService(db)
         response_generator = ai_service.chat_completion(
             messages=messages,
             user_id=str(current_user.id),
-            context=context
+            context=context,
+            tools=tool_service.get_tools(),
+            tool_service=tool_service,
+            user=current_user,
+            ongoing_instructions=[inst.to_dict() for inst in ongoing_instructions]
         )
         
         # Get the response
@@ -456,6 +466,10 @@ async def stream_message(
             limit=5
         )
         
+        # Get ongoing instructions
+        proactive_agent = ProactiveAgent(db)
+        ongoing_instructions = await proactive_agent.get_user_instructions(str(current_user.id))
+        
         # Create streaming response
         async def generate_stream():
             try:
@@ -479,6 +493,7 @@ async def stream_message(
                     messages=messages,
                     user_id=str(current_user.id),
                     context=context,
+                    ongoing_instructions=[inst.to_dict() for inst in ongoing_instructions],
                     tools=tool_service.get_tools(),
                     stream=True,
                     tool_service=tool_service,

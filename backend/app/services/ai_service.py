@@ -124,7 +124,8 @@ class AIService:
         tools: Optional[List[Dict[str, Any]]] = None,
         stream: bool = False,
         tool_service: Optional[Any] = None,
-        user: Optional[Any] = None
+        user: Optional[Any] = None,
+        ongoing_instructions: Optional[List[Dict[str, Any]]] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Generate chat completion using OpenAI.
@@ -144,8 +145,8 @@ class AIService:
         try:
             start_time = datetime.utcnow()
             
-            # Prepare system message with context
-            system_message = self._prepare_system_message(context)
+            # Prepare system message with context and ongoing instructions
+            system_message = self._prepare_system_message(context, ongoing_instructions)
             
             # Prepare messages
             chat_messages = [system_message] + messages
@@ -415,7 +416,7 @@ class AIService:
                 "content": "I apologize, but I encountered an error while processing your request."
             }
     
-    def _prepare_system_message(self, context: Optional[List[Dict[str, Any]]] = None) -> Dict[str, str]:
+    def _prepare_system_message(self, context: Optional[List[Dict[str, Any]]] = None, ongoing_instructions: Optional[List[Dict[str, Any]]] = None) -> Dict[str, str]:
         """
         Prepare system message with context.
         
@@ -441,6 +442,12 @@ Guidelines:
 - When creating contacts, ensure all required information is collected
 - Ask clarifying questions when information is missing
 - Be proactive in suggesting follow-up actions
+- For complex tasks, break them down into steps and execute them systematically
+- Use multiple tools in sequence when needed (e.g., search contact, then schedule meeting, then send confirmation)
+- When searching for contacts: First search HubSpot, if not found OR if HubSpot access fails, then search Gmail emails for the person
+- If HubSpot tool execution fails with "User does not have HubSpot access", immediately search Gmail emails instead
+- When sending emails: Always search for the recipient's email address first (HubSpot, then Gmail if HubSpot fails)
+- For email tasks: Search for contact info, then send the email using gmail_send tool
 
 Available tools:
 - gmail_send: Send emails
@@ -453,6 +460,13 @@ Available tools:
 - hubspot_search_contacts: Search contacts
 
 Use these tools to help the advisor manage their client relationships effectively."""
+        
+        # Add ongoing instructions
+        if ongoing_instructions:
+            instructions_text = "\n\nOngoing Instructions (apply when relevant):\n"
+            for instruction in ongoing_instructions:
+                instructions_text += f"- {instruction.get('description', instruction.get('title', 'Unknown instruction'))}\n"
+            system_prompt += instructions_text
         
         if context:
             context_text = "\n\nRelevant Context:\n"
