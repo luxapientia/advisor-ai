@@ -136,6 +136,37 @@ class ToolService:
             {
                 "type": "function",
                 "function": {
+                    "name": "calendar_get_availability",
+                    "description": "Get available time slots from calendar",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "calendar_id": {
+                                "type": "string",
+                                "description": "Calendar ID (default: primary)",
+                                "default": "primary"
+                            },
+                            "time_min": {
+                                "type": "string",
+                                "description": "Start time filter (ISO format)"
+                            },
+                            "time_max": {
+                                "type": "string",
+                                "description": "End time filter (ISO format)"
+                            },
+                            "duration_minutes": {
+                                "type": "integer",
+                                "description": "Duration in minutes",
+                                "default": 30
+                            }
+                        },
+                        "required": ["time_min", "time_max"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "calendar_create_event",
                     "description": "Create a Google Calendar event",
                     "parameters": {
@@ -318,6 +349,8 @@ class ToolService:
                 return await self._execute_gmail_search(parameters, user)
             elif tool_name == "calendar_get_events":
                 return await self._execute_calendar_get_events(parameters, user)
+            elif tool_name == "calendar_get_availability":
+                return await self._execute_calendar_get_availability(parameters, user)
             elif tool_name == "calendar_create_event":
                 return await self._execute_calendar_create_event(parameters, user)
             elif tool_name == "hubspot_get_contacts":
@@ -484,6 +517,30 @@ class ToolService:
             "calendar_id": parameters.get("calendar_id", "primary"),
             "events": results,
             "total": len(results)
+        }
+    
+    async def _execute_calendar_get_availability(self, parameters: Dict[str, Any], user: User) -> Dict[str, Any]:
+        """Execute calendar get availability tool."""
+        if not user.has_google_access:
+            raise ExternalServiceError("calendar", "User does not have Google access")
+        
+        # Get Google credentials
+        credentials = self._get_google_credentials(user)
+        
+        # Get available time slots
+        availability = await self.google_service.get_calendar_availability(
+            credentials=credentials,
+            time_min=parameters["time_min"],
+            time_max=parameters["time_max"],
+            calendar_id=parameters.get("calendar_id", "primary"),
+            duration_minutes=parameters.get("duration_minutes", 30)
+        )
+        
+        return {
+            "success": True,
+            "calendar_id": parameters.get("calendar_id", "primary"),
+            "available_slots": availability,
+            "total": len(availability)
         }
     
     async def _execute_calendar_create_event(self, parameters: Dict[str, Any], user: User) -> Dict[str, Any]:

@@ -378,6 +378,95 @@ class GoogleService:
             logger.error("Failed to get Calendar events", error=str(e))
             raise ExternalServiceError("calendar", "Failed to get Calendar events")
     
+    async def get_calendar_availability(
+        self,
+        credentials: Credentials,
+        time_min: str,
+        time_max: str,
+        calendar_id: str = "primary",
+        duration_minutes: int = 30
+    ) -> List[Dict[str, Any]]:
+        """
+        Get available time slots from calendar.
+        
+        Args:
+            credentials: Google OAuth credentials
+            calendar_id: Calendar ID
+            time_min: Start time filter
+            time_max: End time filter
+            duration_minutes: Duration in minutes
+            
+        Returns:
+            List: Available time slots
+        """
+        try:
+            from datetime import datetime, timedelta
+            import dateutil.parser
+            
+            service = self.get_calendar_service(credentials)
+            
+            # Get events in the time range
+            events_result = service.events().list(
+                calendarId=calendar_id,
+                timeMin=time_min,
+                timeMax=time_max,
+                maxResults=1000,
+                singleEvents=True,
+                orderBy="startTime"
+            ).execute()
+            
+            events = events_result.get("items", [])
+            
+            # Parse time range
+            start_time = dateutil.parser.parse(time_min)
+            end_time = dateutil.parser.parse(time_max)
+            duration = timedelta(minutes=duration_minutes)
+            
+            # Create list of busy periods
+            busy_periods = []
+            for event in events:
+                event_start = event.get("start", {})
+                event_end = event.get("end", {})
+                
+                if event_start.get("dateTime") and event_end.get("dateTime"):
+                    busy_start = dateutil.parser.parse(event_start["dateTime"])
+                    busy_end = dateutil.parser.parse(event_end["dateTime"])
+                    busy_periods.append((busy_start, busy_end))
+            
+            # Sort busy periods by start time
+            busy_periods.sort(key=lambda x: x[0])
+            
+            # Find available slots
+            available_slots = []
+            current_time = start_time
+            
+            for busy_start, busy_end in busy_periods:
+                # Check if there's a gap before this busy period
+                if current_time + duration <= busy_start:
+                    available_slots.append({
+                        "start": current_time.isoformat(),
+                        "end": (current_time + duration).isoformat(),
+                        "duration_minutes": duration_minutes
+                    })
+                
+                # Move current time to after this busy period
+                current_time = max(current_time, busy_end)
+            
+            # Check if there's time available after the last busy period
+            if current_time + duration <= end_time:
+                available_slots.append({
+                    "start": current_time.isoformat(),
+                    "end": (current_time + duration).isoformat(),
+                    "duration_minutes": duration_minutes
+                })
+            
+            logger.info("Retrieved Calendar availability", count=len(available_slots), calendar_id=calendar_id)
+            return available_slots
+            
+        except Exception as e:
+            logger.error("Failed to get Calendar availability", error=str(e))
+            raise ExternalServiceError("calendar", "Failed to get Calendar availability")
+    
     def _parse_calendar_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """
         Parse Google Calendar event data for RAG ingestion.
