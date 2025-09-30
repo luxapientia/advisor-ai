@@ -129,6 +129,11 @@ async def google_authorize(
         GoogleAuthResponse: Authorization URL and state
     """
     try:
+        # Debug logging
+        logger.info("Google OAuth request received", 
+                   request_data=request.dict(),
+                   request_type=type(request).__name__)
+        
         auth_service = AuthService(db)
         google_service = GoogleService()
         
@@ -148,7 +153,10 @@ async def google_authorize(
         )
         
     except Exception as e:
-        logger.error("Google OAuth authorization failed", error=str(e))
+        logger.error("Google OAuth authorization failed", 
+                    error=str(e), 
+                    exc_info=True,
+                    request_data=request.dict() if hasattr(request, 'dict') else str(request))
         raise OAuthError("google", "Failed to initiate authorization")
 
 

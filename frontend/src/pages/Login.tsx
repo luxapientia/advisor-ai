@@ -56,6 +56,7 @@ const Login: React.FC = () => {
     setError(null);
     try {
       const { authorization_url } = await authService.getGoogleAuthUrl();
+      console.log('authorization_url', authorization_url);
       window.location.href = authorization_url;
     } catch (err) {
       setError('Failed to initiate Google authentication. Please try again.');
