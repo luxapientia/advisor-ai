@@ -582,7 +582,7 @@ async def google_callback_redirect(
         # Note: Gmail sync is now handled on the chat page to avoid blocking login
         
         # Redirect to frontend with tokens
-        frontend_url = "http://localhost:3000/login"
+        frontend_url = f"{settings.FRONTEND_URL}/login"
         params = {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -595,7 +595,7 @@ async def google_callback_redirect(
     except Exception as e:
         logger.error("Google OAuth callback failed", error=str(e))
         # Redirect to frontend with error
-        frontend_url = "http://localhost:3000/login"
+        frontend_url = f"{settings.FRONTEND_URL}/login"
         params = {"error": "authentication_failed"}
         redirect_url = f"{frontend_url}?{urllib.parse.urlencode(params)}"
         return RedirectResponse(url=redirect_url)
@@ -699,7 +699,7 @@ async def hubspot_callback_redirect(
             logger.warning("Failed to trigger HubSpot sync", user_id=str(user.id), error=str(e))
         
         # Redirect to frontend with tokens
-        frontend_url = "http://localhost:3000/login"
+        frontend_url = f"{settings.FRONTEND_URL}/login"
         params = {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -712,7 +712,7 @@ async def hubspot_callback_redirect(
     except Exception as e:
         logger.error("HubSpot OAuth callback failed", error=str(e))
         # Redirect to frontend with error
-        frontend_url = "http://localhost:3000/login"
+        frontend_url = f"{settings.FRONTEND_URL}/login"
         params = {"error": "authentication_failed"}
         redirect_url = f"{frontend_url}?{urllib.parse.urlencode(params)}"
         return RedirectResponse(url=redirect_url)

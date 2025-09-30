@@ -21,6 +21,10 @@ class Settings(BaseSettings):
         default="http://localhost:3000,http://127.0.0.1:3000",
         description="Allowed CORS origins (comma-separated)"
     )
+    FRONTEND_URL: str = Field(
+        default="http://localhost:3000",
+        description="Frontend application URL"
+    )
     
     # Database
     DATABASE_URL: str = Field(..., description="PostgreSQL database URL")

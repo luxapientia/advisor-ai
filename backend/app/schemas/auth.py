@@ -11,6 +11,8 @@ from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.core.config import settings
+
 
 class GoogleAuthRequest(BaseModel):
     """Request schema for Google OAuth authorization."""
@@ -24,7 +26,7 @@ class GoogleAuthRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "redirect_uri": "http://localhost:3000/auth/callback",
+                "redirect_uri": f"{settings.FRONTEND_URL}/auth/callback",
                 "email": "user@example.com"
             }
         }
@@ -60,7 +62,7 @@ class HubSpotAuthRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "redirect_uri": "http://localhost:3000/auth/callback",
+                "redirect_uri": f"{settings.FRONTEND_URL}/auth/callback",
                 "email": "user@example.com"
             }
         }
