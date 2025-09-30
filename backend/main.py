@@ -30,28 +30,14 @@ logger = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Application lifespan manager for startup and shutdown events.
+    
+    This handles:
+    - Database connection check
+    - pgvector extension check
+    - Background task initialization
+    - Cleanup on shutdown
     """
     logger.info("Starting Financial Advisor AI Assistant")
-    
-    # Run database migrations
-    import subprocess
-    import os
-    try:
-        # Check current directory and run migrations
-        current_dir = os.getcwd()
-        logger.info(f"Current directory: {current_dir}")
-        
-        # Run migrations from current directory (already in backend)
-        result = subprocess.run(["alembic", "upgrade", "head"], 
-            capture_output=True, text=True, check=True)
-        logger.info("Database migrations completed successfully")
-        logger.info(f"Migration output: {result.stdout}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Database migration failed: {e}")
-        logger.error(f"Migration error: {e.stderr}")
-        # Don't raise exception, just log the error
-    except Exception as e:
-        logger.error(f"Migration setup failed: {e}")
     
     # Check database connection
     if not await check_database_connection():
@@ -59,6 +45,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     # Ensure pgvector extension is available
     await ensure_pgvector_extension()
+    
+    # Initialize background tasks
+    # TODO: Initialize Celery workers, webhook handlers, etc.
     
     yield
     
