@@ -331,7 +331,13 @@ const Chat: React.FC = () => {
         />
 
         {/* Chat Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Context Bar */}
+          <ContextBar
+            hasGoogleAccess={user?.has_google_access || false}
+            hasHubSpotAccess={user?.has_hubspot_access || false}
+          />
+          
           {/* Messages Area */}
           <div className="flex-1 flex flex-col">
             {messages.length === 0 ? (
@@ -357,12 +363,6 @@ const Chat: React.FC = () => {
               />
             </div>
           </div>
-
-          {/* Context Bar */}
-            <ContextBar
-              hasGoogleAccess={user?.has_google_access || false}
-              hasHubSpotAccess={user?.has_hubspot_access || false}
-            />
         </div>
       </div>
 

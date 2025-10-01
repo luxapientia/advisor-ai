@@ -50,13 +50,15 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           <h1 className="text-lg font-semibold text-gray-900">Ask Anything</h1>
         </div>
 
-        {/* Center - HubSpot Connection Button */}
-        <div className="flex items-center space-x-2">
+
+        {/* Right side - HubSpot Connection Button, User info and logout */}
+        <div className="flex items-center space-x-3">
+          {/* HubSpot Connection Button */}
           {!hasHubSpotAccess ? (
             <button
               onClick={onConnectHubSpot}
               disabled={connectingHubSpot}
-              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-orange-600 border border-transparent rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Users className="h-4 w-4 mr-1" />
               {connectingHubSpot ? 'Connecting...' : 'Connect HubSpot'}
@@ -67,10 +69,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               HubSpot Connected
             </div>
           )}
-        </div>
-
-        {/* Right side - User info and logout */}
-        <div className="flex items-center space-x-3">
+          
           {/* User info */}
           {user && (
             <div className="flex items-center space-x-2">

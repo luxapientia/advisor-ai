@@ -20,7 +20,7 @@ const ContextBar: React.FC<ContextBarProps> = ({
   };
 
   return (
-    <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
+    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
       <div className="flex items-center justify-between">
         <span className="text-sm text-gray-600">
           Context set to {getContextText()}

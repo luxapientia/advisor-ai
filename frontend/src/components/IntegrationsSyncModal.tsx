@@ -128,7 +128,7 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
     return () => {
       clearInterval(pollInterval);
     };
-  }, [isOpen, onSyncComplete, syncTriggered]);
+  }, [isOpen, onSyncComplete]);
 
   if (!isOpen) return null;
 
