@@ -72,10 +72,6 @@ api.interceptors.response.use(
       toast.error('Resource not found.');
     } else if (error.response?.status === 403) {
       toast.error('Access denied.');
-    } else if (error.response?.data?.message) {
-      toast.error(error.response.data.message);
-    } else if (error.message) {
-      toast.error(error.message);
     }
 
     return Promise.reject(error);
