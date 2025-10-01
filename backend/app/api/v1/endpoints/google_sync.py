@@ -201,8 +201,8 @@ async def _run_google_sync_with_progress(
                 query = f"after:{gmail_date}"
                 logger.info("Using incremental sync", user_id=user_id, last_sync=gmail_date)
             else:
-                # First sync - get last 90 days
-                query = "newer_than:90d"
+                # First sync - get last 30 days
+                query = "newer_than:30d"
                 logger.info("Using full sync (first time)", user_id=user_id)
             
             max_results = 500

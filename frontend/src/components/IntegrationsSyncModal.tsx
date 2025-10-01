@@ -100,7 +100,7 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
           (hubspotStatus.completed || !hubspotStatus.has_hubspot_access);
         const anyError = googleStatus.status === 'error' || hubspotStatus.status === 'error';
 
-        if (syncTriggered && (allCompleted || anyError)) {
+        if (allCompleted || anyError) {  // Remove syncTriggered check
           if (allCompleted) {
             const completedServices = [];
             if (googleStatus.completed) completedServices.push('Google');
@@ -242,13 +242,13 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
                 {googleSyncStatus?.has_google_access && (
                   <div className="flex items-center space-x-3 text-sm text-gray-700">
                     <Mail className="h-4 w-4 text-blue-600" />
-                    <span>Syncing emails from the last 3 months</span>
+                    <span>Syncing emails from the last 1 month</span>
                   </div>
                 )}
                 {googleSyncStatus?.has_google_access && (
                   <div className="flex items-center space-x-3 text-sm text-gray-700">
                     <Calendar className="h-4 w-4 text-blue-600" />
-                    <span>Syncing calendar events from the last 3 months</span>
+                    <span>Syncing calendar events from the last 1 month</span>
                   </div>
                 )}
                 {hubspotSyncStatus?.has_hubspot_access && (
