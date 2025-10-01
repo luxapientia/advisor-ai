@@ -226,33 +226,35 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
           </div>
           
           {/* Content */}
-          <div className="p-6 text-center">
-            <h4 className="text-lg font-medium text-gray-900 mb-2">
-              {getStatusText()}
-            </h4>
-            <p className="text-sm text-gray-600 mb-4">
-              {getStatusDescription()}
-            </p>
+          <div className="px-6 pb-6">
+            <div className="text-center mb-6">
+              <h4 className="text-lg font-medium text-gray-900 mb-2">
+                {getStatusText()}
+              </h4>
+              <p className="text-sm text-gray-600">
+                {getStatusDescription()}
+              </p>
+            </div>
             
             {/* Sync Progress Indicators */}
             {getOverallStatus() === 'syncing' && (
-              <div className="space-y-3">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                 {googleSyncStatus?.has_google_access && (
-                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                    <Mail className="h-4 w-4" />
-                    <span>Syncing Gmail emails...</span>
+                  <div className="flex items-center space-x-3 text-sm text-gray-700">
+                    <Mail className="h-4 w-4 text-blue-600" />
+                    <span>Syncing emails from the last 3 months</span>
                   </div>
                 )}
                 {googleSyncStatus?.has_google_access && (
-                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                    <Calendar className="h-4 w-4" />
-                    <span>Syncing Calendar events...</span>
+                  <div className="flex items-center space-x-3 text-sm text-gray-700">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    <span>Syncing calendar events from the last 3 months</span>
                   </div>
                 )}
                 {hubspotSyncStatus?.has_hubspot_access && (
-                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                    <Users className="h-4 w-4" />
-                    <span>Syncing HubSpot contacts...</span>
+                  <div className="flex items-center space-x-3 text-sm text-gray-700">
+                    <Users className="h-4 w-4 text-blue-600" />
+                    <span>Sync HubSpot contacts and deals</span>
                   </div>
                 )}
               </div>
