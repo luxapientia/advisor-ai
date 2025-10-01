@@ -3,9 +3,9 @@ import { MessageSquare } from 'lucide-react';
 
 const ChatEmptyState: React.FC = () => {
   return (
-    <div className="flex items-center justify-center h-full">
-      <div className="max-w-md">
-        <div className="mb-6 text-center">
+    <div className="flex items-center justify-center h-full px-4">
+      <div className="max-w-lg w-full">
+        <div className="mb-8 text-center">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <MessageSquare className="h-8 w-8 text-blue-600" />
           </div>
@@ -14,10 +14,10 @@ const ChatEmptyState: React.FC = () => {
           </h3>
         </div>
         <div className="text-left">
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-6 text-center">
             Ask me anything about your clients, schedule meetings, manage your CRM, or get insights from your data.
           </p>
-          <div className="space-y-2 text-sm text-gray-500">
+          <div className="space-y-3 text-sm text-gray-500">
             <p>• "Show me emails from clients asking about market volatility"</p>
             <p>• "Schedule a meeting with John Smith next Tuesday"</p>
             <p>• "Find all contacts in HubSpot from last month"</p>
