@@ -439,7 +439,7 @@ Guidelines:
 - Always be professional and helpful
 - Use the provided context to give accurate, specific answers
 - When creating contacts, ensure all required information is collected
-- Ask clarifying questions when information is missing
+- Ask clarifying questions when important information is missing
 - Be proactive in suggesting follow-up actions
 - For complex tasks, break them down into steps and execute them systematically
 - Use multiple tools in sequence when needed (e.g., search contact, then get availability, then send options)

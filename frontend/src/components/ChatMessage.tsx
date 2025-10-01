@@ -20,7 +20,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         <div className={`flex-shrink-0 ${isUser ? 'ml-3' : 'mr-3'}`}>
           <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
             isUser 
-              ? 'bg-green-600 text-white' 
+              ? 'bg-green-100 text-black' 
               : 'bg-gray-200 text-gray-600'
           }`}>
             {isUser ? (
@@ -33,9 +33,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
 
         {/* Message content */}
         <div className={`flex-1 ${isUser ? 'text-right' : 'text-left'}`}>
-          <div className={`inline-block px-4 py-2 rounded-lg ${
+          <div className={`inline-block px-4 py-2 rounded-lg text-left ${
             isUser
-              ? 'bg-green-200 text-black'
+              ? 'bg-green-100 text-black'
               : 'bg-white border border-gray-200 text-gray-900'
           }`}>
             {isAssistant && isStreaming ? (

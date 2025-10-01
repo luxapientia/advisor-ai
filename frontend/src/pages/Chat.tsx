@@ -319,7 +319,7 @@ const Chat: React.FC = () => {
       />
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col h-screen">
         {/* Header */}
         <ChatHeader
           onLogout={handleLogout}
@@ -330,39 +330,36 @@ const Chat: React.FC = () => {
           onSidebarToggle={() => setShowSidebar(!showSidebar)}
         />
 
-        {/* Chat Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Context Bar */}
-          <ContextBar
-            hasGoogleAccess={user?.has_google_access || false}
-            hasHubSpotAccess={user?.has_hubspot_access || false}
-          />
-          
-          {/* Messages Area */}
-          <div className="flex-1 flex flex-col">
-            {messages.length === 0 ? (
-              <ChatEmptyState />
-            ) : (
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((message) => (
-                  <ChatMessageComponent
-                    key={message.id}
-                    message={message}
-                  />
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-
-            {/* Input Area */}
-            <div className="border-t border-gray-200 bg-white p-4">
-              <ChatInput
-                onSendMessage={handleSendMessage}
-                disabled={isLoading}
-                placeholder="Ask me anything about your emails, calendar, or contacts..."
-              />
+        {/* Context Bar */}
+        <ContextBar
+          hasGoogleAccess={user?.has_google_access || false}
+          hasHubSpotAccess={user?.has_hubspot_access || false}
+        />
+        
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto">
+          {messages.length === 0 ? (
+            <ChatEmptyState />
+          ) : (
+            <div className="p-4 space-y-4">
+              {messages.map((message) => (
+                <ChatMessageComponent
+                  key={message.id}
+                  message={message}
+                />
+              ))}
+              <div ref={messagesEndRef} />
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div className="border-t border-gray-200 bg-white p-4">
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            disabled={isLoading}
+            placeholder="Ask me anything about your emails, calendar, or contacts..."
+          />
         </div>
       </div>
 
