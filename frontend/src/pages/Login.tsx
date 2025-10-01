@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/auth';
 import { MessageSquare, Mail, Calendar, Users } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { apiClient } from '../services/api';
 
 const Login: React.FC = () => {
   const { login } = useAuth();
@@ -26,20 +27,15 @@ const Login: React.FC = () => {
       if (accessToken && refreshToken && userId) {
         setLoading(true);
         try {
-          // Get user details from backend
-          const response = await fetch('/api/v1/auth/me', {
+          // Use apiClient with manual token
+          const user = await apiClient.get('/auth/me', {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
             },
           });
-
-          if (response.ok) {
-            const user = await response.json();
-            login(accessToken, refreshToken, user);
-            window.location.href = '/chat';
-          } else {
-            setError('Failed to get user information. Please try again.');
-          }
+          
+          login(accessToken, refreshToken, user);
+          window.location.href = '/chat';
         } catch (err) {
           setError('Authentication failed. Please try again.');
         } finally {
