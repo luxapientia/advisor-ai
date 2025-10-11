@@ -20,10 +20,9 @@ from app.core.exceptions import ValidationError, AIError
 from app.core.logging import log_ai_interaction
 from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage
-from app.services.ai_service import AIService
+from app.services.langchain_service import LangChainService
 from app.services.rag_service import RAGService
 from app.services.tool_service import ToolService
-from app.services.proactive_agent import ProactiveAgent
 from app.schemas.chat import (
     ChatMessageRequest,
     ChatMessageResponse,
@@ -330,13 +329,13 @@ async def send_message(
         )
         
         # Get ongoing instructions
-        proactive_agent = ProactiveAgent(db)
-        ongoing_instructions = await proactive_agent.get_user_instructions(str(current_user.id))
+        # Get ongoing instructions (simplified - no complex orchestration needed)
+        ongoing_instructions = []
         
         # Generate AI response
-        ai_service = AIService()
+        langchain_service = LangChainService()
         tool_service = ToolService(db)
-        response_generator = ai_service.chat_completion(
+        response_generator = langchain_service.chat_completion(
             messages=messages,
             user_id=str(current_user.id),
             context=context,
@@ -467,8 +466,7 @@ async def stream_message(
         )
         
         # Get ongoing instructions
-        proactive_agent = ProactiveAgent(db)
-        ongoing_instructions = await proactive_agent.get_user_instructions(str(current_user.id))
+        ongoing_instructions = []
         
         # Create streaming response
         async def generate_stream():
@@ -487,7 +485,7 @@ async def stream_message(
                 await db.refresh(assistant_message)
                 
                 # Generate AI response
-                ai_service = AIService()
+                ai_service = LangChainService()
                 tool_service = ToolService(db)
                 response_generator = ai_service.chat_completion(
                     messages=messages,

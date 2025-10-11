@@ -30,3 +30,6 @@ isort==5.12.0
 flake8==6.1.0
 mypy==1.7.1
 email-validator==2.1.0
+langchain==0.3.27
+langchain-openai==0.3.35
+langchain-community==0.3.31

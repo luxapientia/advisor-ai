@@ -6,6 +6,7 @@ This module handles Gmail sync status, progress tracking, and manual sync trigge
 
 from datetime import datetime, timedelta
 from typing import Dict, Any
+import time
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,6 +22,10 @@ from app.api.v1.endpoints.auth import get_current_user
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
+
+# Sync debouncing
+_sync_locks: Dict[str, float] = {}
+SYNC_DEBOUNCE_SECONDS = 5
 
 
 @router.get("/sync/status")
@@ -58,6 +63,19 @@ async def start_gmail_sync(
     Returns:
         Dict: Sync start confirmation
     """
+    user_id = str(current_user.id)
+    current_time = time.time()
+    
+    # Check if sync was recently started (debouncing)
+    if user_id in _sync_locks:
+        last_sync = _sync_locks[user_id]
+        if current_time - last_sync < SYNC_DEBOUNCE_SECONDS:
+            logger.info("Sync debounced - already started recently", user_id=user_id)
+            return {"message": "Sync already in progress", "status": "debounced"}
+    
+    # Set lock
+    _sync_locks[user_id] = current_time
+    
     if not current_user.has_google_access:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

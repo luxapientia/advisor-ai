@@ -19,7 +19,7 @@ from app.core.exceptions import AIError, DatabaseError
 from app.core.logging import log_ai_interaction
 from app.models.rag import Document, DocumentChunk, QueryCache, EmbeddingJob
 from app.models.user import User
-from app.services.ai_service import AIService
+from app.services.langchain_service import LangChainService
 
 logger = structlog.get_logger(__name__)
 
@@ -40,7 +40,7 @@ class RAGService:
             db: Database session
         """
         self.db = db
-        self.ai_service = AIService()
+        self.ai_service = LangChainService()
         self.similarity_threshold = settings.SIMILARITY_THRESHOLD
         self.max_context_length = settings.MAX_CONTEXT_LENGTH
     
