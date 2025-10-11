@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Loader2, CheckCircle, AlertCircle, Mail, Calendar, Users } from 'lucide-react';
 import { googleSyncService, GoogleSyncStatus } from '../services/googleSync';
 import { hubspotSyncService, HubSpotSyncStatus } from '../services/hubspotSync';
@@ -16,15 +16,13 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
 }) => {
   const [googleSyncStatus, setGoogleSyncStatus] = useState<GoogleSyncStatus | null>(null);
   const [hubspotSyncStatus, setHubspotSyncStatus] = useState<HubSpotSyncStatus | null>(null);
-  const [syncTriggered, setSyncTriggered] = useState(false);
+  const syncTriggeredRef = useRef(false);
 
   // Auto-start sync and poll for updates
   useEffect(() => {
     if (!isOpen) return;
 
     const initializeSync = async () => {
-      if (syncTriggered) return;
-
       try {
         // Check both Google and HubSpot sync status
         const [googleStatus, hubspotStatus] = await Promise.all([
@@ -48,11 +46,11 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
         if (googleStatus.has_google_access) {
           try {
             await googleSyncService.startSync();
-            setSyncTriggered(true);
+            syncTriggeredRef.current = true;
           } catch (error) {
             if (error instanceof AxiosError && error.response?.status === 400) {
               console.log('Google sync already in progress, skipping');
-              setSyncTriggered(true);
+              syncTriggeredRef.current = true;
             } else {
               console.error('Failed to start Google sync:', error);
             }
@@ -62,11 +60,11 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
         if (hubspotStatus.has_hubspot_access) {
           try {
             await hubspotSyncService.startSync();
-            setSyncTriggered(true);
+            syncTriggeredRef.current = true;
           } catch (error) {
             if (error instanceof AxiosError && error.response?.status === 400) {
               console.log('HubSpot sync already in progress, skipping');
-              setSyncTriggered(true);
+              syncTriggeredRef.current = true;
             } else {
               console.error('Failed to start HubSpot sync:', error);
             }
@@ -78,7 +76,7 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
     };
 
     // Reset sync triggered flag when modal opens
-    setSyncTriggered(false);
+    syncTriggeredRef.current = false;
     initializeSync();
 
     // Poll for status updates
@@ -89,22 +87,23 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
           hubspotSyncService.getSyncStatus()
         ]);
         
-        // Only update with real status after sync is triggered
-        if (syncTriggered) {
+        // Update status only after sync is triggered
+        if (syncTriggeredRef.current) {
           setGoogleSyncStatus(googleStatus);
           setHubspotSyncStatus(hubspotStatus);
         }
 
         // Check if all syncs are completed or failed
-        const allCompleted = (googleStatus.completed || !googleStatus.has_google_access) && 
-          (hubspotStatus.completed || !hubspotStatus.has_hubspot_access);
+        const allCompleted = 
+          (!googleStatus.has_google_access || googleStatus.completed) && 
+          (!hubspotStatus.has_hubspot_access || hubspotStatus.completed);
         const anyError = googleStatus.status === 'error' || hubspotStatus.status === 'error';
 
-        if (allCompleted || anyError) {  // Remove syncTriggered check
+        if (allCompleted || anyError) {
           if (allCompleted) {
             const completedServices = [];
-            if (googleStatus.completed) completedServices.push('Google');
-            if (hubspotStatus.completed) completedServices.push('HubSpot');
+            if (googleStatus.has_google_access && googleStatus.completed) completedServices.push('Google');
+            if (hubspotStatus.has_hubspot_access && hubspotStatus.completed) completedServices.push('HubSpot');
             
             if (completedServices.length > 0) {
               toast.success(`${completedServices.join(' and ')} sync completed! Your data is now searchable.`);
@@ -145,8 +144,8 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
     if (googleStatus === 'error' || hubspotStatus === 'error') return 'error';
     
     // If all are completed or user doesn't have access, overall is completed
-    const googleCompleted = googleStatus === 'completed' || !googleSyncStatus?.has_google_access;
-    const hubspotCompleted = hubspotStatus === 'completed' || !hubspotSyncStatus?.has_hubspot_access;
+    const googleCompleted = !googleSyncStatus?.has_google_access || googleStatus === 'completed';
+    const hubspotCompleted = !hubspotSyncStatus?.has_hubspot_access || hubspotStatus === 'completed';
     
     if (googleCompleted && hubspotCompleted) return 'completed';
     
