@@ -96,15 +96,16 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
         }
 
         // Check if all syncs are completed or failed
-        const allCompleted = (googleStatus.completed || !googleStatus.has_google_access) && 
-          (hubspotStatus.completed || !hubspotStatus.has_hubspot_access);
+        const allCompleted = 
+          (!googleStatus.has_google_access || googleStatus.completed) && 
+          (!hubspotStatus.has_hubspot_access || hubspotStatus.completed);
         const anyError = googleStatus.status === 'error' || hubspotStatus.status === 'error';
 
         if (allCompleted || anyError) {  // Remove syncTriggered check
           if (allCompleted) {
             const completedServices = [];
-            if (googleStatus.completed) completedServices.push('Google');
-            if (hubspotStatus.completed) completedServices.push('HubSpot');
+            if (googleStatus.has_google_access && googleStatus.completed) completedServices.push('Google');
+            if (hubspotStatus.has_hubspot_access && hubspotStatus.completed) completedServices.push('HubSpot');
             
             if (completedServices.length > 0) {
               toast.success(`${completedServices.join(' and ')} sync completed! Your data is now searchable.`);
@@ -145,8 +146,8 @@ const IntegrationsSyncModal: React.FC<IntegrationsSyncModalProps> = ({
     if (googleStatus === 'error' || hubspotStatus === 'error') return 'error';
     
     // If all are completed or user doesn't have access, overall is completed
-    const googleCompleted = googleStatus === 'completed' || !googleSyncStatus?.has_google_access;
-    const hubspotCompleted = hubspotStatus === 'completed' || !hubspotSyncStatus?.has_hubspot_access;
+    const googleCompleted = !googleSyncStatus?.has_google_access || googleStatus === 'completed';
+    const hubspotCompleted = !hubspotSyncStatus?.has_hubspot_access || hubspotStatus === 'completed';
     
     if (googleCompleted && hubspotCompleted) return 'completed';
     
