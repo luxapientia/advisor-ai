@@ -21,7 +21,7 @@ import { ChatSession } from '../types';
 const Chat: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [connectingHubSpot, setConnectingHubSpot] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true); // Sidebar open by default on desktop
   const [showIntegrationsSyncModal, setShowIntegrationsSyncModal] = useState(false);
@@ -53,20 +53,29 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Handle HubSpot connection
+  // Handle HubSpot connection/disconnection
   const handleConnectHubSpot = async () => {
     try {
       setConnectingHubSpot(true);
       
-      // Get HubSpot authorization URL
-      const response = await authService.getHubSpotAuthUrl();
-      const { authorization_url } = response;
-      
-      // Redirect to HubSpot OAuth
-      window.location.href = authorization_url;
+      if (user?.has_hubspot_access) {
+        // Disconnect HubSpot
+        await authService.disconnectHubSpot();
+        toast.success('HubSpot disconnected successfully');
+        // Refresh user data to update the UI
+        await refreshUser();
+      } else {
+        // Connect HubSpot
+        const response = await authService.getHubSpotAuthUrl();
+        const { authorization_url } = response;
+        
+        // Redirect to HubSpot OAuth
+        window.location.href = authorization_url;
+      }
     } catch (error) {
-      console.error('Failed to connect HubSpot:', error);
-      toast.error('Failed to connect HubSpot. Please try again.');
+      console.error('Failed to handle HubSpot:', error);
+      const action = user?.has_hubspot_access ? 'disconnect' : 'connect';
+      toast.error(`Failed to ${action} HubSpot. Please try again.`);
     } finally {
       setConnectingHubSpot(false);
     }

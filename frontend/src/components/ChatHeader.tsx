@@ -64,10 +64,14 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               {connectingHubSpot ? 'Connecting...' : 'Connect HubSpot'}
             </button>
           ) : (
-            <div className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 border border-green-200 rounded-md">
+            <button
+              onClick={onConnectHubSpot}
+              disabled={connectingHubSpot}
+              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 border border-red-200 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Users className="h-4 w-4 mr-1" />
-              HubSpot Connected
-            </div>
+              {connectingHubSpot ? 'Disconnecting...' : 'Disconnect HubSpot'}
+            </button>
           )}
           
           {/* User info */}

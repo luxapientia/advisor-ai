@@ -12,6 +12,11 @@ export const authService = {
     return apiClient.post<{ authorization_url: string; state: string }>('/auth/hubspot/authorize', {});
   },
 
+  // HubSpot Disconnect
+  disconnectHubSpot: async (): Promise<void> => {
+    await apiClient.delete('/integrations/accounts/hubspot');
+  },
+
   // Get current user
   getCurrentUser: async (): Promise<User> => {
     return apiClient.get<User>('/auth/me');
