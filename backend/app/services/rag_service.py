@@ -176,7 +176,7 @@ class RAGService:
                     content=chunk,
                     content_length=len(chunk),
                     embedding=embedding,
-                    metadata={
+                    chunk_metadata={
                         "source": document.source,
                         "document_type": document.document_type,
                         "title": document.title
@@ -257,10 +257,10 @@ class RAGService:
                         "document_id": str(chunk.document_id),
                         "content": chunk.content,
                         "similarity_score": float(similarity_score),
-                        "metadata": chunk.metadata,
-                        "source": chunk.metadata.get("source"),
-                        "document_type": chunk.metadata.get("document_type"),
-                        "title": chunk.metadata.get("title")
+                        "metadata": chunk.chunk_metadata,
+                        "source": chunk.chunk_metadata.get("source") if chunk.chunk_metadata else None,
+                        "document_type": chunk.chunk_metadata.get("document_type") if chunk.chunk_metadata else None,
+                        "title": chunk.chunk_metadata.get("title") if chunk.chunk_metadata else None
                     })
             
             logger.info("Searched similar chunks", user_id=user_id, results=len(results))

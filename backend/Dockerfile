@@ -1,11 +1,12 @@
 # Backend Dockerfile with multi-stage build
-FROM python:3.11-slim as base
+FROM python:3.11-slim AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    TIKTOKEN_CACHE_DIR=/app/.cache/tiktoken
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -20,11 +21,17 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Set work directory
 WORKDIR /app
 
+# Create cache directory for tiktoken
+RUN mkdir -p /app/.cache/tiktoken
+
 # Copy requirements first for better caching
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download tokenizer files to avoid runtime network issues
+RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 
 # Copy application code
 COPY . .

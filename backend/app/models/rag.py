@@ -80,7 +80,7 @@ class Document(Base):
             "document_type": self.document_type,
             "title": self.title,
             "content": self.content,
-            "metadata": self.metadata,
+            "metadata": self.document_metadata,
             "is_processed": self.is_processed,
             "processing_error": self.processing_error,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -140,7 +140,7 @@ class DocumentChunk(Base):
             "chunk_index": self.chunk_index,
             "content": self.content,
             "content_length": self.content_length,
-            "metadata": self.metadata,
+            "metadata": self.chunk_metadata,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
