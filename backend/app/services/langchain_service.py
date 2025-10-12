@@ -579,9 +579,27 @@ Best regards"""
         # Create system prompt
         system_prompt = self._create_system_prompt(ongoing_instructions, context)
         
-        # Ensure no malformed template variables in system prompt
-        system_prompt = system_prompt.replace("{'start'}", "{{'start'}}")
-        system_prompt = system_prompt.replace("{'end'}", "{{'end'}}")
+        # Escape all curly braces to prevent template variable interpretation
+        # This is the standard solution for handling template variable conflicts
+        import re
+        
+        # First, protect known template variables
+        placeholders = {}
+        placeholder_pattern = r'\{(input|chat_history|agent_scratchpad)\}'
+        
+        def protect_placeholder(match):
+            key = f"__PLACEHOLDER_{len(placeholders)}__"
+            placeholders[key] = match.group(0)
+            return key
+        
+        system_prompt = re.sub(placeholder_pattern, protect_placeholder, system_prompt)
+        
+        # Now escape all remaining curly braces
+        system_prompt = system_prompt.replace('{', '{{').replace('}', '}}')
+        
+        # Restore protected placeholders
+        for key, value in placeholders.items():
+            system_prompt = system_prompt.replace(key, value)
         
         # Create prompt template
         prompt = ChatPromptTemplate.from_messages([
