@@ -91,8 +91,11 @@ class LangChainService:
                 formatted_slots.append(formatted_slot)
             except Exception as e:
                 logger.warning("Failed to format time slot", slot=slot, error=str(e))
-                # Fallback to raw slot info
-                formatted_slots.append(f"{slot.get('start', 'Unknown time')} to {slot.get('end', 'Unknown time')}")
+                # Fallback to raw slot info - ensure no template variables
+                start_time = slot.get('start', 'Unknown time')
+                end_time = slot.get('end', 'Unknown time')
+                # Use string formatting instead of f-string to avoid any template issues
+                formatted_slots.append("{} to {}".format(start_time, end_time))
         
         return "\n".join([f"- {slot}" for slot in formatted_slots])
     
@@ -570,6 +573,10 @@ Best regards"""
         
         # Create system prompt
         system_prompt = self._create_system_prompt(ongoing_instructions, context)
+        
+        # Ensure no malformed template variables in system prompt
+        system_prompt = system_prompt.replace("{'start'}", "{{'start'}}")
+        system_prompt = system_prompt.replace("{'end'}", "{{'end'}}")
         
         # Create prompt template
         prompt = ChatPromptTemplate.from_messages([
