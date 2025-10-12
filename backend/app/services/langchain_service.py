@@ -9,6 +9,10 @@ import json
 from typing import Dict, Any, List, Optional, AsyncGenerator
 from datetime import datetime
 import hashlib
+import os
+
+# Set tiktoken cache directory to avoid download issues
+os.environ['TIKTOKEN_CACHE_DIR'] = '/tmp/tiktoken_cache'
 
 import structlog
 from langchain.agents import AgentExecutor, create_openai_tools_agent
@@ -42,7 +46,8 @@ class LangChainService:
             api_key=settings.OPENAI_API_KEY
         )
         self.embeddings = OpenAIEmbeddings(
-            api_key=settings.OPENAI_API_KEY
+            api_key=settings.OPENAI_API_KEY,
+            model=settings.OPENAI_EMBEDDING_MODEL
         )
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -719,14 +724,8 @@ Use these tools to help the advisor manage their client relationships effectivel
         Returns:
             List[float]: Embedding vector
         """
-        try:
-            # Use LangChain's OpenAI embeddings
-            embedding = await self.embeddings.aembed_query(text)
-            return embedding
-        except Exception as e:
-            logger.error("Failed to generate embedding", error=str(e))
-            # Return a dummy embedding as fallback
-            return [0.0] * 1536  # OpenAI embedding dimension
+        embedding = await self.embeddings.aembed_query(text)
+        return embedding
     
     async def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
         """
@@ -738,14 +737,8 @@ Use these tools to help the advisor manage their client relationships effectivel
         Returns:
             List[List[float]]: List of embedding vectors
         """
-        try:
-            # Use LangChain's OpenAI embeddings for batch processing
-            embeddings = await self.embeddings.aembed_documents(texts)
-            return embeddings
-        except Exception as e:
-            logger.error("Failed to generate batch embeddings", error=str(e))
-            # Return dummy embeddings as fallback
-            return [[0.0] * 1536 for _ in texts]
+        embeddings = await self.embeddings.aembed_documents(texts)
+        return embeddings
     
     async def summarize_text(self, text: str, max_length: int = 200) -> str:
         """
