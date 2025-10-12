@@ -66,6 +66,18 @@ class ChatMessageResponse(BaseModel):
             return v.__dict__
         return v
     
+    @field_validator("context_sources", mode="before")
+    @classmethod
+    def filter_none_context_sources(cls, v):
+        """Filter out None values from context_sources list."""
+        if v is None:
+            return None
+        if isinstance(v, list):
+            # Filter out None values and ensure all items are strings
+            filtered = [item for item in v if item is not None and isinstance(item, str)]
+            return filtered if filtered else None
+        return v
+    
     class Config:
         from_attributes = True
         protected_namespaces = ()  # Allow fields starting with "model_"

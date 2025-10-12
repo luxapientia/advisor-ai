@@ -356,7 +356,7 @@ async def send_message(
             message_type="text",
             model_used=ai_response.get("model_used"),
             tokens_used=ai_response.get("tokens_used"),
-            context_sources=[item["source"] for item in context] if context else None,
+            context_sources=[item["source"] for item in context if item.get("source")] if context else None,
             tools_called=ai_response.get("tool_calls")
         )
         db.add(assistant_message)
